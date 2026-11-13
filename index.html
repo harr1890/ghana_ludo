@@ -91,9 +91,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
     <ul class="log" id="log" aria-label="Game log"></ul>
     <div class="row">
       <button class="btn" id="btnRules">Rules</button>
+      <button class="btn main" id="btnStop" hidden>Stop throwing and count</button>
       <button class="btn" id="btnSkip" hidden>Skip this turn</button>
       <button class="btn" id="btnLeave">Leave game</button>
     </div>
+    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v7</div>
   </aside>
 </main>
 
@@ -156,7 +158,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   <h3>Throwing the die</h3>
   <p>On your turn the die waits over your yard. Press it, carry it, and flick to throw. It has to roll: a die you only drop does not count. If it leaves the board, that is a loss and your turn ends, whatever it shows. A table can switch losses off; the die then bounces off the rim and always counts.</p>
   <h3>Moving</h3>
-  <p>A 6 earns another throw, and nothing is counted yet: keep throwing until something other than a 6 comes up. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. A marble that has not moved this turn can. A 6 can bring a marble out of your yard onto your start square. Losing the die off the board loses the whole turn, held sixes included. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
+  <p>A 6 earns another throw, and nothing is counted yet. You may keep throwing until something other than a 6 comes up, or stop after any 6 and count what you hold. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. A marble that has not moved this turn can. A marble that eliminates is finished for the turn, and every die has to be counted when some order allows it. So with a 6 and a 2, a marble may use the 6 to eliminate only if another marble can take the 2; otherwise it has to count both without eliminating, or you stop throwing after the 6. A 6 can bring a marble out of your yard onto your start square. Losing the die off the board loses the whole turn, held sixes included. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
   <h3>Eliminating</h3>
   <p>Land exactly on a single opposing marble to send it back to its yard. Three kinds of move exist only for eliminating:</p>
   <p><b>Backward.</b> A marble may count backward along the track if it lands exactly on an opponent.</p>
@@ -171,9 +173,92 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   <div class="row" style="margin-top:14px"><button class="btn main" id="btnRulesClose">Close</button></div>
 </div></div>
 
-<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
-<script>window.mqtt || document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"><\/script>')</script>
 <script>
+/* ONLINE PLAY. Leave this as null to use the free public relay. To use your own Firebase Realtime
+   Database instead, replace null with the config object from your Firebase project settings. */
+window.LUDO_FIREBASE = {
+  apiKey: "AIzaSyByzwfsRdqf2ZpIEdrO3qMHCQoD9ujc8Dk",
+  authDomain: "ghanaludo.firebaseapp.com",
+  databaseURL: "https://ghanaludo-default-rtdb.firebaseio.com",
+  projectId: "ghanaludo",
+  storageBucket: "ghanaludo.firebasestorage.app",
+  messagingSenderId: "747358378391",
+  appId: "1:747358378391:web:02d1b706d8d8c341acccd2"
+};
+</script>
+<script>document.write(window.LUDO_FIREBASE ? '<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"><\/script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"><\/script>' : '<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"><\/script>')</script>
+<script>window.LUDO_FIREBASE || window.mqtt || document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"><\/script>')</script>
+<script>
+/* Optional: keep tables in your own Firebase Realtime Database instead of the public relay.
+   Active only when window.LUDO_FIREBASE holds a config. Presents the document API the game uses. */
+(function () {
+  'use strict';
+  if (window.claude && window.claude.use) return;
+  var CFG = window.LUDO_FIREBASE;
+  if (!CFG) return;
+  var mem = {};
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return mem[k] || null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; } }
+  var pid = lsGet('ludo-player');
+  if (!pid) { pid = 'p_' + Math.random().toString(36).slice(2, 12); lsSet('ludo-player', pid); }
+  function status(text) { if (window.__netStatus) window.__netStatus(text); }
+  var rdb = null, names = {};
+  try { if (typeof firebase !== 'undefined') { firebase.initializeApp(CFG); rdb = firebase.database(); } } catch (e) { rdb = null; }
+  if (rdb) {
+    var was = false;
+    rdb.ref('.info/connected').on('value', function (s) {
+      var on = !!s.val();
+      if (was && !on) status('Connection lost. Reconnecting…');
+      if (on) { was = true; status(''); }
+    });
+  }
+  function snapOf(code, v) {
+    return { id: code, exists: v != null, data: function () { return v == null ? undefined : v; }, metadata: { fromCache: false, hasPendingWrites: false } };
+  }
+  /* {seats:{2:'x'}} -> {'seats/2':'x'} so two people changing different fields never overwrite each other */
+  function flatten(obj, prefix, out) {
+    for (var k in obj) {
+      var v = obj[k], p = prefix ? prefix + '/' + k : k;
+      if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length) flatten(v, p, out);
+      else out[p] = (v && typeof v === 'object' && !Array.isArray(v)) ? null : v;
+    }
+    return out;
+  }
+  function wrap(p) { return p.then(function () { }, function (e) { throw { code: 'unavailable', message: String(e && (e.code || e.message)) }; }); }
+  var db = {
+    doc: function (path) {
+      var code = path.split('/').pop(), ref = rdb.ref('ludo/' + code);
+      return {
+        id: code, path: path,
+        get: function () { return ref.get().then(function (s) { return snapOf(code, s.val()); }); },
+        set: function (data) { return wrap(ref.set(JSON.parse(JSON.stringify(data)))); },
+        update: function (patch) { return wrap(ref.update(flatten(JSON.parse(JSON.stringify(patch)), '', {}))); },
+        onSnapshot: function (next, error) {
+          var h = ref.on('value', function (s) {
+            var v = s.val();
+            if (v && v.names && typeof v.names === 'object') for (var k in v.names) names[k] = v.names[k];
+            next(snapOf(code, v));
+          }, function () { if (error) error({ code: 'unavailable' }); });
+          return function () { ref.off('value', h); };
+        },
+        delete: function () { return wrap(ref.remove()); }
+      };
+    }
+  };
+  var user = {
+    id: function () { return Promise.resolve(pid); },
+    can: function () { return Promise.resolve(true); },
+    isOwner: function () { return Promise.resolve(false); },
+    profiles: function (ids) {
+      var out = {};
+      (ids || []).forEach(function (id) { out[id] = { id: id, name: typeof names[id] === 'string' ? names[id].slice(0, 24) : '' }; });
+      return Promise.resolve(out);
+    }
+  };
+  window.__p2p = { pid: pid, pick: function () { return Promise.resolve(''); }, firebase: true };
+  window.claude = { use: function (n) { return Promise.resolve(n === 'db' ? (rdb ? db : null) : n === 'user' ? user : null); } };
+})();
+
 /* Standalone play through a public message relay (MQTT over secure WebSocket).
    Every player keeps an ordinary outgoing connection to the relay, so it works behind home routers,
    mobile data and most office networks, and nobody has to host. It presents the same small document
@@ -408,7 +493,7 @@ var Ludo = (function () {
       seq: 1,
       seats: active.slice(),
       settings: { yardRaids: !settings || settings.yardRaids !== false, loss: !settings || settings.loss !== false },
-      m: [], turn: -1, phase: 'roll', mover: -1, pool: [], dirs: {},
+      m: [], turn: -1, phase: 'roll', mover: -1, pool: [], dirs: {}, froze: {},
       labor: [-1, -1, -1, -1], out: [false, false, false, false],
       winner: -1, diePose: null, last: null, log: []
     };
@@ -562,8 +647,8 @@ var Ludo = (function () {
     return moves;
   }
 
-  /* who moves now, and every move open to them with the dice still held */
-  function turnMoves(S) {
+  /* who moves now, and every move the dice allow before the 'use every die you can' rule */
+  function rawTurnMoves(S) {
     var roller = S.turn, master = S.labor[roller], res = { mover: roller, moves: [] }, done = {};
     if (!S.pool) S.pool = [];
     function add(seat, d) {
@@ -573,6 +658,7 @@ var Ludo = (function () {
         // within one turn a marble keeps to one direction
         var went = (S.dirs || {})[seat + ':' + ms[q].i], dir = (ms[q].kind === 'back' || ms[q].kind === 'sideback') ? 'b' : 'f';
         if (went && went !== dir) continue;
+        if ((S.froze || {})[seat + ':' + ms[q].i]) continue;   // a marble that eliminated is done for this turn
         ms[q].d = d; res.moves.push(ms[q]);
       }
     }
@@ -585,13 +671,44 @@ var Ludo = (function () {
     return res;
   }
 
+  /* How many more dice can be counted from here in this turn (searches the possible orders). */
+  function reach(S, turn, budget) {
+    if (S.phase !== 'move' || S.turn !== turn.t || S.mover !== turn.m || !S.pool.length) return 0;
+    var ms = rawTurnMoves(S).moves, best = 0, tried = {};
+    for (var q = 0; q < ms.length; q++) {
+      var m = ms[q], key = m.i + '|' + m.dest + '|' + m.d + '|' + (m.kill ? 1 : 0);
+      if (tried[key]) continue; tried[key] = 1;
+      if (budget.n-- <= 0) return S.pool.length;        // search limit: assume the rest can be counted
+      var C = clone(S); applyMove(C, m);
+      var v = 1 + reach(C, turn, budget);
+      if (v > best) best = v;
+      if (best >= S.pool.length) break;
+    }
+    return best;
+  }
+  /* The moves a player may actually choose: only those that still let them count as many dice as
+     possible. So a marble may not eliminate (and stop) if that strands a die another order could use. */
+  function turnMoves(S) {
+    var res = rawTurnMoves(S);
+    if (S.phase !== 'move' || S.pool.length < 2 || res.moves.length < 2) return res;
+    var L = clone(S); L.last = null; L.log = [];
+    var budget = { n: 3000 }, vals = [], best = 0, q;
+    for (q = 0; q < res.moves.length; q++) {
+      var C = clone(L); applyMove(C, res.moves[q]);
+      var v = 1 + reach(C, { t: L.turn, m: L.mover }, budget);
+      vals.push(v); if (v > best) best = v;
+    }
+    res.moves = res.moves.filter(function (m, k) { return vals[k] === best; });
+    return res;
+  }
+
   /* ---------- turn flow ---------- */
   function log(S, e) { S.log.push(e); if (S.log.length > 14) S.log.shift(); }
   function activeLeft(S) { var a = []; for (var c = 0; c < 4; c++) if (S.seats[c] && !S.out[c]) a.push(c); return a; }
   function nextTurn(S) {
     var t = S.turn;
     for (var g = 0; g < 4; g++) { t = (t + 1) % 4; if (S.seats[t] && !S.out[t]) break; }
-    S.turn = t; S.mover = t; S.phase = 'roll'; S.pool = []; S.dirs = {};
+    S.turn = t; S.mover = t; S.phase = 'roll'; S.pool = []; S.dirs = {}; S.froze = {};
   }
 
   /* roll: {value, off, gone, traj, pose} */
@@ -610,7 +727,19 @@ var Ludo = (function () {
     S.pool.push(v);
     log(S, { k: 'roll', s: roller, v: v });
     if (v === 6) { S.phase = 'roll'; S.mover = roller; return S; } // keep throwing; count afterwards
-    var p = turnMoves(S);
+    var p = rawTurnMoves(S);
+    if (!p.moves.length) { S.last.nomove = true; nextTurn(S); return S; }
+    S.phase = 'move'; S.mover = p.mover;
+    return S;
+  }
+
+  /* after a 6 the player may decline to throw again and count what they hold */
+  function stopRolling(S) {
+    if (S.phase !== 'roll' || !S.pool || !S.pool.length) return S;
+    S.seq++;
+    S.last = { type: 'stop', by: S.turn };
+    log(S, { k: 'stop', s: S.turn });
+    var p = rawTurnMoves(S);
     if (!p.moves.length) { S.last.nomove = true; nextTurn(S); return S; }
     S.phase = 'move'; S.mover = p.mover;
     return S;
@@ -629,6 +758,8 @@ var Ludo = (function () {
     if (!S.dirs) S.dirs = {};
     S.dirs[seat + ':' + mv.i] = (mv.kind === 'back' || mv.kind === 'sideback') ? 'b' : 'f';
     if (mv.kill) {
+      if (!S.froze) S.froze = {};
+      S.froze[seat + ':' + mv.i] = 1;
       var v = mv.kill.s, vi = mv.kill.i, to;
       if (isOwnYard(vfrom, v)) {
         to = 'X';
@@ -679,7 +810,8 @@ var Ludo = (function () {
       return S;
     }
     if (S.pool.length) {
-      var p = turnMoves(S);
+      S.phase = 'move';
+      var p = rawTurnMoves(S);
       if (p.moves.length) { S.phase = 'move'; S.mover = p.mover; return S; }
     }
     nextTurn(S);
@@ -697,7 +829,7 @@ var Ludo = (function () {
   return {
     START: START, ENTR: ENTR, NAMES: NAMES, TRACK: TRACK, YC: YC, ROWOF: ROWOF,
     laneCell: laneCell, nodePos: nodePos, newGame: newGame, clone: clone,
-    occupancy: occupancy, legalMoves: legalMoves, turnMoves: turnMoves, applyRoll: applyRoll, applyMove: applyMove,
+    occupancy: occupancy, legalMoves: legalMoves, turnMoves: turnMoves, stopRolling: stopRolling, applyRoll: applyRoll, applyMove: applyMove,
     skipTurn: skipTurn, onBoardCount: onBoardCount, yardCount: yardCount, count: count,
     isOwnYard: isOwnYard, sameMove: sameMove
   };
@@ -1199,6 +1331,7 @@ var DiePhysics = (function () {
     if (queue.length > 3) { var end = queue[queue.length - 1]; queue = []; setShown(end); return; }
     var nx = queue.shift(), L = nx.last;
     if (!shown || nx.seq !== shown.seq + 1 || !L) { setShown(nx); pump(); return; }
+    if (L.type === 'stop' && L.nomove) banner(nameOf(L.by) + ' stopped throwing. No move to make.');
     if (L.type === 'roll' && L.traj && L.traj.length >= 14) {
       carry = null;
       anim = { type: 'roll', next: nx, traj: L.traj, t0: performance.now(), dur: (L.traj.length / 7 - 1) / 30, hold: L.gone ? 0.25 : 0.55, gone: L.gone };
@@ -1321,6 +1454,7 @@ var DiePhysics = (function () {
       case 'out': return a + ' has no marbles left.';
       case 'win': return a + ' wins.';
       case 'skip': return a + '’s turn was skipped.';
+      case 'stop': return a + ' stopped throwing.';
     }
     return '';
   }
@@ -1330,7 +1464,7 @@ var DiePhysics = (function () {
     $('tableTag').textContent = mode === 'online' && Net.code ? 'Table ' + Net.code : mode === 'local' ? 'Playing on this device' : 'House rules, one die';
     pl.textContent = ''; lg.textContent = ''; st.textContent = '';
     $('btnLeave').hidden = mode === 'none';
-    if (!S) { st.textContent = 'Set up a game to begin.'; $('btnSkip').hidden = true; st.style.borderLeftColor = ''; return; }
+    if (!S) { st.textContent = 'Set up a game to begin.'; $('btnSkip').hidden = true; $('btnStop').hidden = true; st.style.borderLeftColor = ''; return; }
     var main = '', sub = '', who = S.phase === 'move' ? S.mover : S.turn;
     if (S.phase === 'over') { main = label(S.winner) + ' wins the game.'; who = S.winner; }
     else if (anim && anim.type === 'roll') { main = label(anim.next.last.by) + ' throws…'; who = anim.next.last.by; }
@@ -1339,7 +1473,7 @@ var DiePhysics = (function () {
       if (S.pool.length) main = (canAct(S.turn) && mode === 'online' ? 'You threw a 6. Throw again.' : label(S.turn) + ' threw a 6 and throws again.') + ' Holding ' + S.pool.join(', ') + '.';
       sub = canAct(S.turn) ? 'Press the die over the ' + NAMES[S.turn].toLowerCase() + ' yard, then flick it.' : '';
       if (S.labor[S.turn] >= 0) sub = 'Laboring for ' + nameOf(S.labor[S.turn]) + ': anything but a 6 moves their marbles. ' + sub;
-      else if (S.pool.length && canAct(S.turn)) sub = 'Nothing is counted until you throw something other than a 6. ' + sub;
+      else if (S.pool.length && canAct(S.turn)) sub = 'Throw again, or stop and count what you hold. ' + sub;
     } else {
       main = (canAct(S.mover) && mode === 'online' ? 'You move. ' : label(S.mover) + ' moves. ') + (S.pool.length > 1 ? 'Dice to count: ' : 'Counting ') + S.pool.join(', ') + '.';
       if (S.mover !== S.turn) sub = 'Thrown by ' + nameOf(S.turn) + ', their laborer. ';
@@ -1363,6 +1497,7 @@ var DiePhysics = (function () {
     for (var q = S.log.length - 1; q >= 0; q--) lg.appendChild(el('li', '', logText(S.log[q])));
     var host = mode === 'online' && Net.meta && Net.meta.host === Net.uid;
     $('btnSkip').hidden = !(host && S.phase !== 'over' && !canAct(who));
+    $('btnStop').hidden = !(S.phase === 'roll' && S.pool && S.pool.length > 0 && canAct(S.turn) && !anim);
     if (S.phase === 'over' && !overDismissed && !anim) showOver(); else if (S.phase !== 'over') hide('shOver');
   }
   function showOver() {
@@ -1589,6 +1724,7 @@ var DiePhysics = (function () {
     if (mode === 'local') startLocal(startLocal.n || 2);
     else if (mode === 'online') chain(function () { return upd({ status: 'lobby', seq: 0, s: '' }); });
   };
+  $('btnStop').onclick = function () { if (shown && idle() && shown.phase === 'roll' && shown.pool.length && canAct(shown.turn)) { carry = null; commit(Ludo.stopRolling(Ludo.clone(shown))); } };
   $('btnSkip').onclick = function () { if (latest && idle() && latest.phase !== 'over') commit(Ludo.skipTurn(Ludo.clone(latest))); };
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide('shRules'); });
 
