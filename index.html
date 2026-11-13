@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marble Ludo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --table:#152b2b; --table-2:#1c3837; --rail:#102222; --line:#2c4b49;
+  --cream:#f1e4c3; --cream-dim:#c9bd9c; --ink:#2b1a0e; --teak:#7a4a22;
+  --red:#d42a1e; --green:#1e9a54; --yellow:#f0b41c; --blue:#2259c4;
+  --display:"Alfa Slab One", Georgia, serif; --body:"Figtree", system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--table);color:var(--cream);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 320px;height:100vh;height:100dvh}
+.stage{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden;background:var(--table)}
+.stage canvas{display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.banner{position:absolute;left:50%;top:14px;transform:translateX(-50%);max-width:88%;padding:9px 16px;border-radius:6px;background:var(--cream);color:var(--ink);font-weight:600;box-shadow:0 6px 0 rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;text-align:center}
+.banner.on{opacity:1}
+.rail{background:var(--rail);border-left:2px solid var(--line);display:flex;flex-direction:column;min-height:0;padding:18px 18px 14px;gap:14px;overflow:auto}
+.brand{font-family:var(--display);font-size:30px;line-height:1;letter-spacing:.01em;color:var(--cream);margin:0}
+.brand small{display:block;font-family:var(--body);font-size:13px;font-weight:500;color:var(--cream-dim);margin-top:6px;letter-spacing:0}
+.status{background:var(--cream);color:var(--ink);border-radius:6px;padding:12px 14px;font-weight:600;font-size:16px;line-height:1.3;min-height:68px;display:flex;flex-direction:column;justify-content:center;border-left:10px solid var(--teak)}
+.status span{display:block;font-weight:500;font-size:13.5px;margin-top:3px;color:#5b4530}
+.players{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.players li{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;border:2px solid transparent;background:var(--table-2)}
+.players li.turn{border-color:var(--cream)}
+.players li.gone{opacity:.45}
+.chip{width:22px;height:22px;border-radius:50%;box-shadow:inset -3px -4px 6px rgba(0,0,0,.45), inset 3px 3px 5px rgba(255,255,255,.45)}
+.pname{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pnote{display:block;font-weight:500;font-size:12.5px;color:var(--cream-dim);white-space:normal}
+.tally{display:flex;gap:4px}
+.tally i{width:10px;height:10px;border-radius:50%;border:2px solid var(--cream-dim);display:block}
+.tally i.b{background:var(--cream-dim)}
+.tally i.h{background:var(--cream);border-color:var(--cream)}
+.tally i.x{border-color:#6d3a34;background:linear-gradient(45deg,transparent 42%,#b3554a 42%,#b3554a 58%,transparent 58%)}
+.log{flex:1;min-height:90px;margin:0;padding:0;list-style:none;overflow:auto;font-size:13.5px;color:var(--cream-dim);display:flex;flex-direction:column-reverse;gap:4px}
+.log li:first-child{color:var(--cream)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:transparent;border:2px solid var(--line);border-radius:6px;padding:8px 12px;font-weight:600}
+.btn:hover{border-color:var(--cream-dim)}
+.btn.main{background:var(--yellow);border-color:var(--yellow);color:var(--ink)}
+.btn.main:hover{filter:brightness(1.07)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.sheet{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(8,18,18,.72);padding:16px;z-index:10}
+.sheet.on{display:flex}
+.card{background:var(--cream);color:var(--ink);border-radius:8px;width:min(480px,100%);max-height:92vh;overflow:auto;padding:26px 26px 22px;box-shadow:0 10px 0 rgba(0,0,0,.3);border-top:12px solid var(--teak)}
+.card h1{font-family:var(--display);font-weight:400;font-size:44px;line-height:1;margin:0 0 6px}
+.card h2{font-family:var(--display);font-weight:400;font-size:26px;line-height:1.1;margin:0 0 10px}
+.card p{margin:0 0 12px;max-width:60ch}
+.card .btn{border-color:#b9a77f;color:var(--ink)}
+.card .btn:hover{border-color:var(--ink)}
+.card .btn.main{background:var(--ink);border-color:var(--ink);color:var(--cream)}
+.card hr{border:0;border-top:2px solid #d8c9a2;margin:16px 0}
+.card label{font-weight:600;display:block;margin-bottom:6px}
+.card input[type=text]{font:inherit;padding:8px 10px;border:2px solid #b9a77f;border-radius:6px;background:#fff8e4;color:var(--ink);width:9.5em;text-transform:lowercase}
+.muted{color:#6b563c;font-size:13.5px}
+.seats{list-style:none;padding:0;margin:0 0 14px;display:grid;gap:8px}
+.seats li{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:2px solid #d8c9a2;border-radius:6px}
+.seats .chip{width:24px;height:24px}
+.code{font-family:var(--display);font-size:22px;letter-spacing:.08em}
+.rules h3{font-size:15px;margin:14px 0 4px}
+.rules p{margin:0 0 6px}
+.card label.check{display:flex;gap:8px;align-items:flex-start;font-weight:500;margin:0 0 14px}
+.check input{margin-top:4px;width:16px;height:16px}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto auto;height:auto;min-height:100dvh}
+  .rail{border-left:0;border-top:2px solid var(--line);overflow:visible}
+  .brand{font-size:24px}
+  .log{max-height:150px}
+}
+@media (prefers-reduced-motion:reduce){.banner{transition:none}}
+</style>
+</head>
+<body>
+<main class="app">
+  <section class="stage" id="stage">
+    <canvas id="cv" aria-label="Ludo board"></canvas>
+    <div class="banner" id="banner" role="status" aria-live="polite"></div>
+  </section>
+  <aside class="rail">
+    <h1 class="brand">Marble Ludo<small id="tableTag">House rules, one die</small></h1>
+    <div class="status" id="status" aria-live="polite">Set up a game to begin.</div>
+    <ul class="players" id="players"></ul>
+    <ul class="log" id="log" aria-label="Game log"></ul>
+    <div class="row">
+      <button class="btn" id="btnRules">Rules</button>
+      <button class="btn" id="btnSkip" hidden>Skip this turn</button>
+      <button class="btn" id="btnLeave">Leave game</button>
+    </div>
+  </aside>
+</main>
+
+<div class="sheet" id="shHome"><div class="card">
+  <h1>Marble Ludo</h1>
+  <p>Four marbles each, one die you throw yourself. Throw it too hard and it leaves the board.</p>
+  <hr>
+  <div id="onlineBox">
+    <div id="nameWrap" hidden style="margin-bottom:14px">
+      <label for="inName">Your name</label>
+      <input type="text" id="inName" maxlength="16" autocomplete="nickname" spellcheck="false" style="text-transform:none;width:14em">
+    </div>
+    <div class="row" style="align-items:flex-end">
+      <button class="btn main" id="btnCreate">Start an online table</button>
+    </div>
+    <div style="margin-top:14px">
+      <label for="inCode">Join a table with its code</label>
+      <div class="row"><input type="text" id="inCode" autocomplete="off" spellcheck="false" placeholder="k7m2q" inputmode="text" autocapitalize="none"><button class="btn" id="btnJoin">Join table</button></div>
+    </div>
+    <p class="muted" id="onlineNote" style="margin-top:10px" role="status"></p>
+  </div>
+  <hr>
+  <label>Play on this device, passing it around</label>
+  <div class="row">
+    <button class="btn" data-local="2">2 players</button>
+    <button class="btn" data-local="3">3 players</button>
+    <button class="btn" data-local="4">4 players</button>
+  </div>
+  <label class="check" style="margin-top:14px"><input type="checkbox" id="ckRaidLocal" checked><span>Allow yard raids. A marble hit in its own yard leaves the game.</span></label>
+  <label class="check"><input type="checkbox" id="ckLossLocal" checked><span>Allow losses. A die thrown off the board loses the turn. Switched off, it bounces off the rim.</span></label>
+  <div class="row"><button class="btn" data-rules>Read the rules</button></div>
+</div></div>
+
+<div class="sheet" id="shLobby"><div class="card">
+  <h2>Table <span class="code" id="lbCode"></span></h2>
+  <p id="lbMsg" class="muted"></p>
+  <ul class="seats" id="lbSeats"></ul>
+  <label class="check" id="lbRaidWrap"><input type="checkbox" id="ckRaid" checked><span>Allow yard raids. A marble hit in its own yard leaves the game.</span></label>
+  <label class="check" id="lbLossWrap"><input type="checkbox" id="ckLoss" checked><span>Allow losses. A die thrown off the board loses the turn. Switched off, it bounces off the rim.</span></label>
+  <p class="muted" id="lbInvite">To invite friends, open Share on this page and copy the link while this table is showing. The link brings them straight here. They can also enter the code on the first screen.</p>
+  <div class="row" id="lbLinkRow" hidden style="margin-bottom:14px"><input type="text" id="lbLink" readonly aria-label="Invite link" style="text-transform:none;flex:1;min-width:0;width:auto"><button class="btn" id="btnCopy">Copy link</button></div>
+  <div class="row">
+    <button class="btn main" id="btnStart">Start game</button>
+    <button class="btn" data-rules>Rules</button>
+    <button class="btn" id="btnLobbyLeave">Leave table</button>
+  </div>
+</div></div>
+
+<div class="sheet" id="shOver"><div class="card">
+  <h2 id="ovTitle"></h2>
+  <p id="ovMsg"></p>
+  <div class="row">
+    <button class="btn main" id="btnAgain">Play again</button>
+    <button class="btn" id="btnOverClose">Look at the board</button>
+  </div>
+</div></div>
+
+<div class="sheet" id="shRules"><div class="card rules">
+  <h2>Rules at this table</h2>
+  <h3>Throwing the die</h3>
+  <p>On your turn the die waits over your yard. Press it, carry it, and flick to throw. It has to roll: a die you only drop does not count. If it leaves the board, that is a loss and your turn ends, whatever it shows. A table can switch losses off; the die then bounces off the rim and always counts.</p>
+  <h3>Moving</h3>
+  <p>A 6 earns another throw, and nothing is counted yet: keep throwing until something other than a 6 comes up. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. A marble that has not moved this turn can. A 6 can bring a marble out of your yard onto your start square. Losing the die off the board loses the whole turn, held sixes included. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
+  <h3>Eliminating</h3>
+  <p>Land exactly on a single opposing marble to send it back to its yard. Three kinds of move exist only for eliminating:</p>
+  <p><b>Backward.</b> A marble may count backward along the track if it lands exactly on an opponent.</p>
+  <p><b>Parallel.</b> When the square you count onto, forward or backward, is straight across an arm from a lone opponent, with exactly the home-lane square between, you may eliminate that marble. Your marble takes its square and carries on from there, which can put it much nearer home. Coming out on a 6 counts: an opponent across the home lane from your start square can be taken. A marble inside a home lane can never be taken this way.</p>
+  <p><b>Into a home.</b> A marble may turn into an opponent's home lane, or step from their start square into their yard, if the count lands exactly on a marble there. Yard dimples count 1 to 4 from the start square. A marble hit in its own yard leaves the game. The raider walks back out on later moves.</p>
+  <h3>Stacks</h3>
+  <p>Two or more marbles of one colour on a square are a stack. A stack cannot be eliminated, and no marble of any colour can pass over it.</p>
+  <h3>Laborer</h3>
+  <p>If your last marble on the board is eliminated, you become a laborer for the player who did it. You keep throwing on your turn, but every number that is not a 6 is played by them on their marbles. Throw a 6 and you bring a marble out and are free; any other dice from that turn are then yours.</p>
+  <h3>Winning</h3>
+  <p>Bring every marble you still have to the centre. A player who loses all four marbles in yard raids is out.</p>
+  <div class="row" style="margin-top:14px"><button class="btn main" id="btnRulesClose">Close</button></div>
+</div></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>window.Peer || document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>')</script>
+<script>
+/* Standalone play: one player's browser hosts the table, friends connect to it directly (WebRTC via PeerJS).
+   It presents the same small document API the game already uses, so the game code is unchanged. */
+(function () {
+  'use strict';
+  if (window.claude && window.claude.use) return;      // running inside Claude: its own storage is used
+  var PREFIX = 'ghana-ludo-v1-';
+  var mem = {};
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return mem[k] || null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; } }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } }
+  var pid = lsGet('ludo-player');
+  if (!pid) { pid = 'p_' + Math.random().toString(36).slice(2, 12); lsSet('ludo-player', pid); }
+  function status(text) { if (window.__netStatus) window.__netStatus(text); }
+  function merge(a, b) {
+    for (var k in b) {
+      if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object' && !Array.isArray(a[k])) merge(a[k], b[k]);
+      else a[k] = b[k];
+    }
+    return a;
+  }
+  function snapOf(code, data) {
+    var frozen = data ? JSON.parse(JSON.stringify(data)) : undefined;
+    return { id: code, exists: !!data, data: function () { return frozen; }, metadata: { fromCache: false, hasPendingWrites: false } };
+  }
+
+  var tables = {}; // code -> table
+  function table(code) {
+    if (tables[code]) return tables[code];
+    var T = { code: code, role: null, data: null, peer: null, conns: [], conn: null, subs: [], closed: false, tries: 0, timer: null, names: {} };
+    tables[code] = T;
+    function fire() { if (T.data && T.data.names) T.names = T.data.names; var s = snapOf(code, T.data); T.subs.slice().forEach(function (f) { try { f.next(s); } catch (e) { } }); }
+    function fireMissing() { var s = snapOf(code, null); T.subs.slice().forEach(function (f) { try { f.next(s); } catch (e) { } }); }
+    function save() { if (T.role === 'host' && T.data) lsSet('ludo-host-' + code, JSON.stringify(T.data)); }
+    function broadcast() {
+      var msg = { t: 'doc', d: T.data };
+      T.conns = T.conns.filter(function (c) { return c.open; });
+      T.conns.forEach(function (c) { try { c.send(msg); } catch (e) { } });
+    }
+
+    /* ----- host ----- */
+    function openHost(resolve, reject) {
+      if (typeof Peer === 'undefined') { reject && reject({ code: 'unavailable', message: 'PeerJS did not load' }); return; }
+      T.role = 'host';
+      var peer = new Peer(PREFIX + code);
+      T.peer = peer;
+      peer.on('open', function () { T.tries = 0; status(''); save(); fire(); if (resolve) { resolve(); resolve = null; } });
+      peer.on('connection', function (c) {
+        c.on('open', function () { T.conns.push(c); try { c.send({ t: 'doc', d: T.data }); } catch (e) { } });
+        c.on('data', function (m) {
+          if (!m || m.t !== 'patch' || !m.p || typeof m.p !== 'object' || !T.data) return;
+          merge(T.data, m.p); save(); fire(); broadcast();
+        });
+        c.on('close', function () { T.conns = T.conns.filter(function (x) { return x !== c; }); });
+        c.on('error', function () { });
+      });
+      peer.on('disconnected', function () { if (!T.closed) { status('Lost the connection to the meeting point. Reconnecting…'); try { peer.reconnect(); } catch (e) { } } });
+      peer.on('error', function (err) {
+        if (T.closed) return;
+        if (err && err.type === 'unavailable-id' && T.tries < 6) { // our own old tab may still hold the name for a moment
+          T.tries++; try { peer.destroy(); } catch (e) { }
+          T.timer = setTimeout(function () { openHost(resolve, reject); }, 1500);
+          return;
+        }
+        if (resolve && reject) { reject({ code: 'unavailable', message: String(err && err.type) }); resolve = null; }
+        else status('Connection problem: ' + (err && err.type ? err.type : 'unknown') + '.');
+      });
+    }
+
+    /* ----- guest ----- */
+    function connectGuest() {
+      if (T.closed) return;
+      var c = T.peer.connect(PREFIX + code, { reliable: true, serialization: 'json' });
+      T.conn = c;
+      var opened = false;
+      c.on('open', function () { opened = true; T.tries = 0; status(''); });
+      c.on('data', function (m) { if (m && m.t === 'doc') { T.data = m.d || null; if (T.data) fire(); else fireMissing(); } });
+      c.on('close', function () { if (T.closed) return; status('Connection to the host was lost. Reconnecting…'); retryGuest(); });
+      c.on('error', function () { });
+      setTimeout(function () { if (!opened && !T.closed && T.conn === c) { try { c.close(); } catch (e) { } retryGuest(); } }, 12000);
+    }
+    function retryGuest() {
+      if (T.closed) return;
+      clearTimeout(T.timer);
+      T.timer = setTimeout(function () {
+        if (T.closed) return;
+        if (T.peer && T.peer.disconnected && !T.peer.destroyed) { try { T.peer.reconnect(); } catch (e) { } }
+        if (T.peer && !T.peer.destroyed) connectGuest(); else openGuest();
+      }, 2000);
+    }
+    function openGuest() {
+      if (typeof Peer === 'undefined') { status('Online play could not load. Check your connection and reload.'); return; }
+      T.role = 'guest';
+      var peer = new Peer();
+      T.peer = peer;
+      peer.on('open', function () { connectGuest(); });
+      peer.on('disconnected', function () { if (!T.closed) { try { peer.reconnect(); } catch (e) { } } });
+      peer.on('error', function (err) {
+        if (T.closed) return;
+        if (err && err.type === 'peer-unavailable') {
+          if (!T.data) { T.tries++; if (T.tries >= 2) fireMissing(); }   // nobody is hosting this code
+          else status('The host is not reachable. Waiting for them to come back…');
+          retryGuest();
+        } else if (err && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed')) {
+          status('Connection problem. Retrying…'); retryGuest();
+        }
+      });
+    }
+
+    T.api = {
+      id: code, path: 'games/' + code,
+      get: function () { return Promise.resolve(snapOf(code, T.data)); },
+      set: function (data) {           // creating a table makes this browser its host
+        T.data = JSON.parse(JSON.stringify(data));
+        return new Promise(function (res, rej) { openHost(res, rej); });
+      },
+      update: function (patch) {
+        if (T.role === 'host') {
+          if (!T.data) return Promise.reject({ code: 'invalid_argument' });
+          merge(T.data, JSON.parse(JSON.stringify(patch))); save(); fire(); broadcast();
+          return Promise.resolve();
+        }
+        if (!T.conn || !T.conn.open) return Promise.reject({ code: 'unavailable' });
+        try { T.conn.send({ t: 'patch', p: patch }); } catch (e) { return Promise.reject({ code: 'unavailable' }); }
+        if (T.data) { merge(T.data, JSON.parse(JSON.stringify(patch))); fire(); } // show it at once; the host's copy follows
+        return Promise.resolve();
+      },
+      onSnapshot: function (next, error) {
+        var sub = { next: next, error: error };
+        T.subs.push(sub);
+        if (T.role === 'host') { setTimeout(fire, 0); }
+        else if (!T.role) {
+          var saved = lsGet('ludo-host-' + code), d = null;
+          try { d = saved ? JSON.parse(saved) : null; } catch (e) { }
+          if (d && d.host === pid) { T.data = d; openHost(null, null); setTimeout(fire, 0); } // the host came back after a reload
+          else openGuest();
+        }
+        return function () {
+          T.subs = T.subs.filter(function (x) { return x !== sub; });
+          if (T.subs.length) return;
+          T.closed = true; clearTimeout(T.timer);
+          try { if (T.peer) T.peer.destroy(); } catch (e) { }
+          delete tables[code]; status('');
+        };
+      },
+      delete: function () { lsDel('ludo-host-' + code); return Promise.resolve(); }
+    };
+    return T;
+  }
+
+  var db = { doc: function (path) { return table(path.split('/').pop()).api; } };
+  var user = {
+    id: function () { return Promise.resolve(pid); },
+    can: function () { return Promise.resolve(true); },
+    isOwner: function () { return Promise.resolve(false); },
+    profiles: function (ids) {
+      var out = {}, all = {};
+      for (var c in tables) for (var k in tables[c].names) all[k] = tables[c].names[k];
+      (ids || []).forEach(function (id) { out[id] = { id: id, name: typeof all[id] === 'string' ? all[id].slice(0, 24) : '' }; });
+      return Promise.resolve(out);
+    }
+  };
+  window.__p2p = { pid: pid };
+  window.claude = { use: function (n) { return Promise.resolve(n === 'db' ? (typeof Peer === 'undefined' ? null : db) : n === 'user' ? user : null); } };
+})();
+
+/* Ludo rules engine. Pure functions, no DOM. */
+var Ludo = (function () {
+  'use strict';
+  var START = [0, 13, 26, 39];
+  var ENTR = [50, 11, 24, 37];
+  var NAMES = ['Red', 'Green', 'Yellow', 'Blue'];
+
+  /* ---------- geometry (row, col) on the 15x15 board ---------- */
+  var TRACK = [];
+  (function () {
+    var i;
+    for (i = 1; i <= 5; i++) TRACK.push([6, i]);
+    for (i = 5; i >= 0; i--) TRACK.push([i, 6]);
+    TRACK.push([0, 7]); TRACK.push([0, 8]);
+    for (i = 1; i <= 5; i++) TRACK.push([i, 8]);
+    for (i = 9; i <= 14; i++) TRACK.push([6, i]);
+    TRACK.push([7, 14]); TRACK.push([8, 14]);
+    for (i = 13; i >= 9; i--) TRACK.push([8, i]);
+    for (i = 9; i <= 14; i++) TRACK.push([i, 8]);
+    TRACK.push([14, 7]); TRACK.push([14, 6]);
+    for (i = 13; i >= 9; i--) TRACK.push([i, 6]);
+    for (i = 5; i >= 0; i--) TRACK.push([8, i]);
+    TRACK.push([7, 0]); TRACK.push([6, 0]);
+  })();
+  function laneCell(c, k) {
+    if (c === 0) return [7, 1 + k];
+    if (c === 1) return [1 + k, 7];
+    if (c === 2) return [7, 13 - k];
+    return [13 - k, 7];
+  }
+  var YC = [[3, 3], [12, 3], [12, 12], [3, 12]]; // yard centres (x, y)
+  function rot(v, times) { var x = v[0], y = v[1], t; for (var i = 0; i < times; i++) { t = x; x = -y; y = t; } return [x, y]; }
+  var DIMPLE0 = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
+  var HOME0 = [[-1.12, 0], [-0.74, -0.27], [-0.74, 0.27], [-0.42, 0]];
+
+  function nodePos(key, seat, idx) {
+    var t = key[0], c, k, rc, o;
+    if (t === 'T') { rc = TRACK[+key.slice(1)]; return [rc[1] + 0.5, rc[0] + 0.5]; }
+    if (t === 'L') { rc = laneCell(+key[1], +key[2]); return [rc[1] + 0.5, rc[0] + 0.5]; }
+    if (t === 'Y') { c = +key[1]; k = +key[2]; o = rot(DIMPLE0[k], c); return [YC[c][0] + o[0] * 1.05, YC[c][1] + o[1] * 1.05]; }
+    if (t === 'H') { o = rot(HOME0[idx || 0], seat || 0); return [7.5 + o[0], 7.5 + o[1]]; }
+    return [7.5, 7.5];
+  }
+
+  /* cell -> node key, and the sideways rows of every arm */
+  var CELL = {};
+  (function () {
+    var i, c, k, rc;
+    for (i = 0; i < 52; i++) CELL[TRACK[i][0] + ',' + TRACK[i][1]] = 'T' + i;
+    for (c = 0; c < 4; c++) for (k = 0; k < 5; k++) { rc = laneCell(c, k); CELL[rc[0] + ',' + rc[1]] = 'L' + c + k; }
+  })();
+  var ROWOF = {};
+  (function () {
+    function add(cells) {
+      var keys = cells.map(function (rc) { return CELL[rc[0] + ',' + rc[1]]; });
+      for (var j = 0; j < 3; j++) ROWOF[keys[j]] = { row: keys, j: j };
+    }
+    var i;
+    for (i = 1; i <= 5; i++) add([[6, i], [7, i], [8, i]]);
+    for (i = 9; i <= 13; i++) add([[6, i], [7, i], [8, i]]);
+    for (i = 1; i <= 5; i++) add([[i, 6], [i, 7], [i, 8]]);
+    for (i = 9; i <= 13; i++) add([[i, 6], [i, 7], [i, 8]]);
+  })();
+
+  /* ---------- state ---------- */
+  function newGame(active, settings, gid) {
+    var S = {
+      gid: gid || String(Math.random()).slice(2, 10),
+      seq: 1,
+      seats: active.slice(),
+      settings: { yardRaids: !settings || settings.yardRaids !== false, loss: !settings || settings.loss !== false },
+      m: [], turn: -1, phase: 'roll', mover: -1, pool: [], dirs: {},
+      labor: [-1, -1, -1, -1], out: [false, false, false, false],
+      winner: -1, diePose: null, last: null, log: []
+    };
+    for (var c = 0; c < 4; c++) {
+      S.m.push(['Y' + c + '0', 'Y' + c + '1', 'Y' + c + '2', 'Y' + c + '3']);
+      if (!S.seats[c]) S.out[c] = false;
+    }
+    for (c = 0; c < 4; c++) if (S.seats[c]) { S.turn = c; break; }
+    S.mover = S.turn;
+    return S;
+  }
+  function clone(S) { return JSON.parse(JSON.stringify(S)); }
+
+  function occupancy(S) {
+    var occ = {}, c, i, l;
+    for (c = 0; c < 4; c++) {
+      if (!S.seats[c]) continue;
+      for (i = 0; i < 4; i++) {
+        l = S.m[c][i];
+        if (l === 'H' || l === 'X') continue;
+        (occ[l] || (occ[l] = [])).push({ s: c, i: i });
+      }
+    }
+    return occ;
+  }
+  function isOwnYard(loc, seat) { return loc[0] === 'Y' && +loc[1] === seat; }
+  function onBoardCount(S, seat) {
+    var n = 0;
+    for (var i = 0; i < 4; i++) { var l = S.m[seat][i]; if (l !== 'H' && l !== 'X' && !isOwnYard(l, seat)) n++; }
+    return n;
+  }
+  function yardCount(S, seat) {
+    var n = 0;
+    for (var i = 0; i < 4; i++) if (isOwnYard(S.m[seat][i], seat)) n++;
+    return n;
+  }
+  function count(S, seat, v) { var n = 0; for (var i = 0; i < 4; i++) if (S.m[seat][i] === v) n++; return n; }
+
+  /* ---------- move generation ---------- */
+  function nexts(S, seat, node, dir, noBranch) {
+    var out = [], t = node[0], c, k, a;
+    if (t === 'T') {
+      a = +node.slice(1);
+      // at the mouth of its own lane a marble may turn in, or carry on round the track
+      if (a === ENTR[seat]) out.push(['L' + seat + '0', 'main', null]);
+      out.push(['T' + ((a + 1) % 52), 'main', null]);
+      if (noBranch !== node) {
+        for (c = 0; c < 4; c++) {
+          if (c === seat || !S.seats[c]) continue;
+          if (a === ENTR[c]) out.push(['L' + c + '0', 'in', null]);
+          if (S.settings.yardRaids && a === START[c]) out.push(['Y' + c + '0', 'in', null]);
+        }
+      }
+    } else if (t === 'L') {
+      c = +node[1]; k = +node[2];
+      if (c === seat) out.push(k < 4 ? ['L' + c + (k + 1), 'main', null] : ['H', 'main', null]);
+      else if (dir === 'in') { if (k < 4) out.push(['L' + c + (k + 1), 'in', null]); }
+      else if (k > 0) out.push(['L' + c + (k - 1), 'out', null]);
+      else out.push(['T' + ENTR[c], 'main', 'T' + ENTR[c]]);
+    } else if (t === 'Y') {
+      c = +node[1]; k = +node[2];
+      if (dir === 'in') { if (k < 3) out.push(['Y' + c + (k + 1), 'in', null]); }
+      else if (k > 0) out.push(['Y' + c + (k - 1), 'out', null]);
+      else out.push(['T' + START[c], 'main', 'T' + START[c]]);
+    }
+    return out;
+  }
+  function isStack(occ, key) { return !!occ[key] && occ[key].length >= 2; }
+
+  function forwardPaths(S, seat, loc, n, occ) {
+    var res = [], t = loc[0];
+    function walk(node, dir, left, path, nb) {
+      if (left === 0) { res.push({ path: path, raid: dir === 'in' }); return; }
+      var nx = nexts(S, seat, node, dir, nb);
+      for (var q = 0; q < nx.length; q++) {
+        var key = nx[q][0];
+        if (key === 'H') { if (left === 1) res.push({ path: path.concat('H'), raid: false }); continue; }
+        if (left > 1 && isStack(occ, key)) continue; // nothing passes over a stack
+        walk(key, nx[q][1], left - 1, path.concat(key), nx[q][2]);
+      }
+    }
+    if (t === 'T' || (t === 'L' && +loc[1] === seat)) walk(loc, 'main', n, [loc], null);
+    else { walk(loc, 'out', n, [loc], null); walk(loc, 'in', n, [loc], null); }
+    return res;
+  }
+  function backwardPath(S, seat, loc, n, occ) {
+    var node = loc, path = [loc], nx, k;
+    for (var step = 1; step <= n; step++) {
+      if (node[0] === 'T') nx = 'T' + ((+node.slice(1) + 51) % 52);
+      else if (node[0] === 'L' && +node[1] === seat) { k = +node[2]; nx = k > 0 ? 'L' + seat + (k - 1) : 'T' + ENTR[seat]; }
+      else return null;
+      if (step < n && isStack(occ, nx)) return null;
+      path.push(nx); node = nx;
+    }
+    return path;
+  }
+  /* squares level with `dest` across the arm that could be hit from it */
+  function parallelTargets(dest, occ) {
+    var r = ROWOF[dest], res = [];
+    if (!r) return res;
+    // only straight across the arm, with exactly the home-lane square between; never into the lane
+    if (r.j !== 1) res.push(r.row[2 - r.j]);
+    return res;
+  }
+  /* what happens on the landing square; null = not allowed */
+  function landing(seat, dest, killOnly, occ) {
+    if (dest === 'H') return killOnly ? null : { kill: null };
+    var o = occ[dest];
+    if (!o || !o.length || o[0].s === seat) return killOnly ? null : { kill: null };
+    if (o.length === 1) return { kill: { s: o[0].s, i: o[0].i } };
+    return null; // two or more opponent marbles: safe
+  }
+
+  function legalMoves(S, seat, n) {
+    var occ = occupancy(S), moves = [], seen = {};
+    function push(i, kind, path, killOnly) {
+      var dest = path[path.length - 1], id = i + '>' + dest;
+      if (seen[id]) return;
+      var r = landing(seat, dest, killOnly, occ);
+      if (!r) return;
+      seen[id] = 1;
+      moves.push({ i: i, kind: kind, path: path, dest: dest, kill: r.kill });
+      if (!killOnly && !r.kill && dest !== 'H') parallel(i, 'side', path);
+    }
+    // parallel: count onto a square, forward or backward, that is straight across the arm from a
+    // lone opponent; the marble takes that opponent's square and carries on from there
+    function parallel(i, kind, path) {
+      var via = path[path.length - 1], here = occ[via];
+      if (here && here.length && here[0].s !== seat) return;
+      var pt = parallelTargets(via, occ);
+      for (var q = 0; q < pt.length; q++) {
+        var o = occ[pt[q]], pid = i + '>' + pt[q];
+        if (!o || o.length !== 1 || o[0].s === seat || seen[pid]) continue;
+        seen[pid] = 1;
+        moves.push({ i: i, kind: kind, path: path.concat(pt[q]), dest: pt[q], via: via, kill: { s: o[0].s, i: o[0].i } });
+      }
+    }
+    for (var i = 0; i < 4; i++) {
+      var loc = S.m[seat][i];
+      if (loc === 'H' || loc === 'X') continue;
+      if (isOwnYard(loc, seat)) {
+        if (n === 6) push(i, 'out', [loc, 'T' + START[seat]], false);
+        continue;
+      }
+      var fp = forwardPaths(S, seat, loc, n, occ), q;
+      for (q = 0; q < fp.length; q++) if (!fp[q].raid) push(i, 'fwd', fp[q].path, false);
+      for (q = 0; q < fp.length; q++) if (fp[q].raid) push(i, 'raid', fp[q].path, true);
+      var bp = backwardPath(S, seat, loc, n, occ);
+      if (bp) { push(i, 'back', bp, true); parallel(i, 'sideback', bp); }
+    }
+    return moves;
+  }
+
+  /* who moves now, and every move open to them with the dice still held */
+  function turnMoves(S) {
+    var roller = S.turn, master = S.labor[roller], res = { mover: roller, moves: [] }, done = {};
+    if (!S.pool) S.pool = [];
+    function add(seat, d) {
+      if (done[d]) return; done[d] = 1;
+      var ms = legalMoves(S, seat, d);
+      for (var q = 0; q < ms.length; q++) {
+        // within one turn a marble keeps to one direction
+        var went = (S.dirs || {})[seat + ':' + ms[q].i], dir = (ms[q].kind === 'back' || ms[q].kind === 'sideback') ? 'b' : 'f';
+        if (went && went !== dir) continue;
+        ms[q].d = d; res.moves.push(ms[q]);
+      }
+    }
+    var k;
+    if (master < 0) { for (k = 0; k < S.pool.length; k++) add(roller, S.pool[k]); return res; }
+    if (S.pool.indexOf(6) >= 0) add(roller, 6);          // a laborer's 6 is their own
+    if (res.moves.length) return res;
+    res.mover = master;                                  // everything else is played by the master
+    for (k = 0; k < S.pool.length; k++) if (S.pool[k] !== 6) add(master, S.pool[k]);
+    return res;
+  }
+
+  /* ---------- turn flow ---------- */
+  function log(S, e) { S.log.push(e); if (S.log.length > 14) S.log.shift(); }
+  function activeLeft(S) { var a = []; for (var c = 0; c < 4; c++) if (S.seats[c] && !S.out[c]) a.push(c); return a; }
+  function nextTurn(S) {
+    var t = S.turn;
+    for (var g = 0; g < 4; g++) { t = (t + 1) % 4; if (S.seats[t] && !S.out[t]) break; }
+    S.turn = t; S.mover = t; S.phase = 'roll'; S.pool = []; S.dirs = {};
+  }
+
+  /* roll: {value, off, gone, traj, pose} */
+  function applyRoll(S, roll) {
+    var roller = S.turn;
+    S.seq++;
+    S.last = { type: 'roll', by: roller, value: roll.value, off: !!roll.off, gone: !!roll.gone, traj: roll.traj || null };
+    S.diePose = roll.gone ? null : (roll.pose || null);
+    if (roll.off) {
+      log(S, { k: 'off', s: roller });
+      nextTurn(S);
+      return S;
+    }
+    var v = roll.value;
+    if (!S.pool) S.pool = [];
+    S.pool.push(v);
+    log(S, { k: 'roll', s: roller, v: v });
+    if (v === 6) { S.phase = 'roll'; S.mover = roller; return S; } // keep throwing; count afterwards
+    var p = turnMoves(S);
+    if (!p.moves.length) { S.last.nomove = true; nextTurn(S); return S; }
+    S.phase = 'move'; S.mover = p.mover;
+    return S;
+  }
+
+  function sameMove(a, b) { return a.i === b.i && a.dest === b.dest; }
+
+  function applyMove(S, mv) {
+    var seat = S.mover, from = S.m[seat][mv.i];
+    S.seq++;
+    var di = S.pool.indexOf(mv.d);
+    if (di >= 0) S.pool.splice(di, 1);
+    var last = { type: 'move', seat: seat, i: mv.i, kind: mv.kind, path: mv.path, kill: null };
+    var vfrom = mv.kill ? S.m[mv.kill.s][mv.kill.i] : null;
+    S.m[seat][mv.i] = mv.dest;
+    if (!S.dirs) S.dirs = {};
+    S.dirs[seat + ':' + mv.i] = (mv.kind === 'back' || mv.kind === 'sideback') ? 'b' : 'f';
+    if (mv.kill) {
+      var v = mv.kill.s, vi = mv.kill.i, to;
+      if (isOwnYard(vfrom, v)) {
+        to = 'X';
+      } else {
+        var occ = occupancy(S); // mover already placed, victim still listed where it stood
+        to = null;
+        var order = [vi, 0, 1, 2, 3];
+        for (var q = 0; q < order.length && !to; q++) {
+          var key = 'Y' + v + order[q];
+          if (!occ[key] || !occ[key].length) to = key;
+        }
+        if (!to) to = 'Y' + v + vi;
+      }
+      S.m[v][vi] = to;
+      last.kill = { s: v, i: vi, from: vfrom, to: to };
+      log(S, { k: to === 'X' ? 'dead' : 'kill', s: seat, v: v });
+      if (to !== 'X' && onBoardCount(S, v) === 0 && yardCount(S, v) > 0) {
+        S.labor[v] = seat;
+        log(S, { k: 'labor', s: v, f: seat });
+      }
+    } else if (mv.dest === 'H') {
+      log(S, { k: 'home', s: seat });
+    }
+    S.last = last;
+
+    var c;
+    for (c = 0; c < 4; c++) {
+      if (!S.seats[c] || S.out[c]) continue;
+      if (count(S, c, 'X') === 4) { S.out[c] = true; log(S, { k: 'out', s: c }); }
+    }
+    for (c = 0; c < 4; c++) {
+      if (S.labor[c] < 0) continue;
+      if (onBoardCount(S, c) > 0) { S.labor[c] = -1; log(S, { k: 'free', s: c }); }
+      else if (S.out[c] || S.out[S.labor[c]]) S.labor[c] = -1;
+    }
+    // winner: every surviving marble home (mover checked first)
+    var order2 = [seat, 0, 1, 2, 3], win = -1;
+    for (var w = 0; w < order2.length && win < 0; w++) {
+      c = order2[w];
+      if (!S.seats[c] || S.out[c]) continue;
+      var h = count(S, c, 'H'), x = count(S, c, 'X');
+      if (h > 0 && h + x === 4) win = c;
+    }
+    if (win < 0) { var left = activeLeft(S); if (left.length === 1) win = left[0]; }
+    if (win >= 0) {
+      S.winner = win; S.phase = 'over'; S.pool = [];
+      log(S, { k: 'win', s: win });
+      return S;
+    }
+    if (S.pool.length) {
+      var p = turnMoves(S);
+      if (p.moves.length) { S.phase = 'move'; S.mover = p.mover; return S; }
+    }
+    nextTurn(S);
+    return S;
+  }
+
+  function skipTurn(S) {
+    S.seq++;
+    log(S, { k: 'skip', s: S.turn });
+    S.last = { type: 'skip' };
+    nextTurn(S);
+    return S;
+  }
+
+  return {
+    START: START, ENTR: ENTR, NAMES: NAMES, TRACK: TRACK, YC: YC, ROWOF: ROWOF,
+    laneCell: laneCell, nodePos: nodePos, newGame: newGame, clone: clone,
+    occupancy: occupancy, legalMoves: legalMoves, turnMoves: turnMoves, applyRoll: applyRoll, applyMove: applyMove,
+    skipTurn: skipTurn, onBoardCount: onBoardCount, yardCount: yardCount, count: count,
+    isOwnYard: isOwnYard, sameMove: sameMove
+  };
+})();
+
+/* Rigid-body die on a board that sits on a table. Units: board cells, seconds. */
+var DiePhysics = (function () {
+  'use strict';
+  var H = 0.5;            // half edge
+  var G = 60;             // gravity
+  var DT = 1 / 240;
+  var REC = 8;            // record every 8 steps = 30 fps
+  var FPS = 30;
+  var BOARD = 15;
+  var THICK = 0.45;       // board thickness above the table
+  var EDGE = 3.1;         // table edge beyond the board
+  var MU = 0.55, REST = 0.38;
+  var INV_M = 1, INV_I = 1 / ((2 / 3) * H * H);
+  var CORNERS = [];
+  (function () { for (var a = -1; a <= 1; a += 2) for (var b = -1; b <= 1; b += 2) for (var c = -1; c <= 1; c += 2) CORNERS.push([a * H, b * H, c * H]); })();
+  // face value for local axes: +x 2, -x 5, +y 3, -y 4, +z 1, -z 6
+  var FACE = [[2, 5], [3, 4], [1, 6]];
+
+  function rotM(q) {
+    var w = q[0], x = q[1], y = q[2], z = q[3];
+    return [
+      1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y),
+      2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
+      2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)
+    ];
+  }
+  function topFace(q) {
+    var R = rotM(q), best = -2, val = 1;
+    for (var j = 0; j < 3; j++) {
+      var z = R[6 + j];
+      if (z > best) { best = z; val = FACE[j][0]; }
+      if (-z > best) { best = -z; val = FACE[j][1]; }
+    }
+    return { value: val, flat: best };
+  }
+  function randomQuat(rnd) {
+    var u1 = rnd(), u2 = rnd() * 2 * Math.PI, u3 = rnd() * 2 * Math.PI;
+    var a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
+    return [a * Math.sin(u2), a * Math.cos(u2), b * Math.sin(u3), b * Math.cos(u3)];
+  }
+  function r2(v) { return Math.round(v * 100) / 100; }
+  function r3(v) { return Math.round(v * 1000) / 1000; }
+
+  /* t: {x, y, vx, vy} release point and flick velocity */
+  function simulate(t, rnd) {
+    rnd = rnd || Math.random;
+    var p = [t.x, t.y, 1.7];
+    var sp = Math.sqrt(t.vx * t.vx + t.vy * t.vy);
+    var v = [t.vx, t.vy, 2 + sp * 0.06];
+    var q = t.q ? t.q.slice() : randomQuat(rnd);
+    var roll = 0.9 / H;
+    var w = [-t.vy * roll + (rnd() - 0.5) * 16, t.vx * roll + (rnd() - 0.5) * 16, (rnd() - 0.5) * 14];
+    var frames = [], fallen = false, gone = false, calm = 0, steps = 0, maxSteps = Math.round(9 / DT);
+
+    function rec() { frames.push(r2(p[0]), r2(p[1]), r2(p[2]), r3(q[0]), r3(q[1]), r3(q[2]), r3(q[3])); }
+    rec();
+    while (steps < maxSteps) {
+      steps++;
+      v[2] -= G * DT;
+      p[0] += v[0] * DT; p[1] += v[1] * DT; p[2] += v[2] * DT;
+      var hw = 0.5 * DT;
+      var nq = [
+        q[0] + hw * (-w[0] * q[1] - w[1] * q[2] - w[2] * q[3]),
+        q[1] + hw * (w[0] * q[0] + w[1] * q[3] - w[2] * q[2]),
+        q[2] + hw * (-w[0] * q[3] + w[1] * q[0] + w[2] * q[1]),
+        q[3] + hw * (w[0] * q[2] - w[1] * q[1] + w[2] * q[0])
+      ];
+      var nl = Math.sqrt(nq[0] * nq[0] + nq[1] * nq[1] + nq[2] * nq[2] + nq[3] * nq[3]);
+      q = [nq[0] / nl, nq[1] / nl, nq[2] / nl, nq[3] / nl];
+
+      if (t.walls) { // a rim round the board: the die bounces back
+        for (var ax = 0; ax < 2; ax++) {
+          var hit = 0;
+          if (p[ax] < H) { p[ax] = H; if (v[ax] < 0) hit = 1; }
+          else if (p[ax] > BOARD - H) { p[ax] = BOARD - H; if (v[ax] > 0) hit = 1; }
+          if (hit && Math.abs(v[ax]) < 1) { v[ax] = 0; hit = 0; } // resting against the rim
+          if (hit) {
+            v[ax] *= -0.55; v[1 - ax] *= 0.9;
+            w[0] *= 0.7; w[1] *= 0.7; w[2] = w[2] * 0.7 + (ax ? -v[0] : v[1]) * 0.35;
+          }
+        }
+      }
+      if (!t.walls && !fallen && (p[0] < -0.1 || p[0] > BOARD + 0.1 || p[1] < -0.1 || p[1] > BOARD + 0.1)) fallen = true;
+      if (fallen) { // the board edge is a wall once the die has dropped off
+        var inx = p[0] > -H && p[0] < BOARD + H, iny = p[1] > -H && p[1] < BOARD + H;
+        if (inx && iny) {
+          var dl = p[0] + H, dr = BOARD + H - p[0], du = p[1] + H, dd = BOARD + H - p[1];
+          var m = Math.min(dl, dr, du, dd);
+          if (m === dl) { p[0] = -H; if (v[0] > 0) v[0] *= -0.3; }
+          else if (m === dr) { p[0] = BOARD + H; if (v[0] < 0) v[0] *= -0.3; }
+          else if (m === du) { p[1] = -H; if (v[1] > 0) v[1] *= -0.3; }
+          else { p[1] = BOARD + H; if (v[1] < 0) v[1] *= -0.3; }
+        }
+      }
+      if (p[0] < -EDGE || p[0] > BOARD + EDGE || p[1] < -EDGE || p[1] > BOARD + EDGE) { gone = true; break; }
+
+      var R = rotM(q), contact = false, maxPen = 0;
+      for (var it = 0; it < 2; it++) {
+        for (var ci = 0; ci < 8; ci++) {
+          var c = CORNERS[ci];
+          var rx = R[0] * c[0] + R[1] * c[1] + R[2] * c[2];
+          var ry = R[3] * c[0] + R[4] * c[1] + R[5] * c[2];
+          var rz = R[6] * c[0] + R[7] * c[1] + R[8] * c[2];
+          var cx = p[0] + rx, cy = p[1] + ry, cz = p[2] + rz;
+          var ground = t.walls || (!fallen && cx >= 0 && cx <= BOARD && cy >= 0 && cy <= BOARD) ? 0 : -THICK;
+          var pen = ground - cz;
+          if (pen <= 0) continue;
+          contact = true;
+          if (pen > maxPen) maxPen = pen;
+          var ux = v[0] + w[1] * rz - w[2] * ry;
+          var uy = v[1] + w[2] * rx - w[0] * rz;
+          var uz = v[2] + w[0] * ry - w[1] * rx;
+          if (uz >= 0) continue;
+          var e = uz < -2.2 ? REST : 0;
+          var jn = -(1 + e) * uz / (INV_M + (rx * rx + ry * ry) * INV_I);
+          v[2] += jn * INV_M;
+          w[0] += ry * jn * INV_I; w[1] -= rx * jn * INV_I;
+          ux = v[0] + w[1] * rz - w[2] * ry;
+          uy = v[1] + w[2] * rx - w[0] * rz;
+          var um = Math.sqrt(ux * ux + uy * uy);
+          if (um > 1e-6) {
+            var tx = ux / um, ty = uy / um;
+            // r x t
+            var kx = -rz * ty, ky = rz * tx, kz = rx * ty - ry * tx;
+            var jt = um / (INV_M + (kx * kx + ky * ky + kz * kz) * INV_I);
+            if (jt > MU * jn) jt = MU * jn;
+            var Jx = -tx * jt, Jy = -ty * jt;
+            v[0] += Jx * INV_M; v[1] += Jy * INV_M;
+            w[0] += (-rz * Jy) * INV_I; w[1] += (rz * Jx) * INV_I; w[2] += (rx * Jy - ry * Jx) * INV_I;
+          }
+        }
+      }
+      if (maxPen > 0) p[2] += maxPen * 0.9;
+      if (contact) {
+        var da = 1 - 2.2 * DT, dl2 = 1 - 1.1 * DT;
+        w[0] *= da; w[1] *= da; w[2] *= da; v[0] *= dl2; v[1] *= dl2;
+      }
+      if (steps % REC === 0) rec();
+
+      var lin = v[0] * v[0] + v[1] * v[1] + v[2] * v[2], ang = w[0] * w[0] + w[1] * w[1] + w[2] * w[2];
+      if (contact && lin < 0.09 && ang < 0.5) {
+        var tf = topFace(q);
+        if (tf.flat > 0.9995) { calm += DT; if (calm > 0.2) break; }
+        else calm = 0;
+      } else calm = 0;
+    }
+    rec();
+    var res = topFace(q);
+    return {
+      frames: frames, fps: FPS, value: res.value, flat: res.flat,
+      off: fallen || gone, gone: gone,
+      pose: gone ? null : [r2(p[0]), r2(p[1]), r2(p[2]), r3(q[0]), r3(q[1]), r3(q[2]), r3(q[3])],
+      time: steps * DT
+    };
+  }
+
+  return { simulate: simulate, rotM: rotM, topFace: topFace, H: H, THICK: THICK, EDGE: EDGE, FACE: FACE, randomQuat: randomQuat };
+})();
+
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var NAMES = Ludo.NAMES;
+  var COL = [
+    { base: '#d42a1e', light: '#ff9a8c', dark: '#5f0d08', paint: '#c9291f' },
+    { base: '#1e9a54', light: '#8be6ad', dark: '#093a20', paint: '#1e8c4e' },
+    { base: '#f0b41c', light: '#fff0b0', dark: '#7a4e04', paint: '#efb41c' },
+    { base: '#2259c4', light: '#9cbcff', dark: '#0a2058', paint: '#1f55b5' }
+  ];
+  var VIEW0 = -2.5, VIEW = 20, CAM = 30;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------------- game/session state ---------------- */
+  var mode = 'none';          // none | local | online
+  var shown = null;           // state currently drawn
+  var latest = null;          // newest known state
+  var queue = [];             // states waiting to be animated
+  var anim = null;
+  var sel = null, hover = null;
+  var carry = null;
+  var handQ = DiePhysics.randomQuat(Math.random), handFor = '';
+  var overDismissed = false;
+  var Net = { db: null, user: null, uid: null, canWrite: null, ready: false, doc: null, unsub: null, code: null, meta: null, timer: null, names: {} };
+  var pendingCode = null;
+  var P2P = !!window.__p2p; // standalone page: one player's browser hosts, friends connect directly
+  function myName() { var v = ($('inName').value || '').trim().slice(0, 16); try { if (v) localStorage.setItem('ludo-name', v); } catch (e) { } return v; }
+  function namePatch() { var o = {}, n = myName(); if (P2P && n) o[Net.uid] = n; return o; }
+
+  function mySeat() {
+    if (mode !== 'online' || !Net.meta || !Net.uid) return -1;
+    for (var c = 0; c < 4; c++) if (Net.meta.seats[c] === Net.uid) return c;
+    return -1;
+  }
+  function canAct(seat) { return mode === 'local' ? true : (mode === 'online' && mySeat() === seat); }
+  function idle() { return !anim && !queue.length && shown && shown === latest; }
+  function nameOf(seat) {
+    if (mode === 'online' && Net.meta) {
+      var id = Net.meta.seats[seat];
+      if (id && Net.names[id]) return Net.names[id];
+    }
+    return NAMES[seat];
+  }
+  function label(seat) { return nameOf(seat) + (mode === 'online' && seat === mySeat() ? ' (you)' : ''); }
+
+  /* ---------------- canvas ---------------- */
+  var cv = $('cv'), ctx = cv.getContext('2d'), stat = document.createElement('canvas');
+  var px = 600, dpr = 1, S1 = 30; // css size, device ratio, css px per cell
+
+  function resize() {
+    var st = $('stage'), w = st.clientWidth, h = st.clientHeight;
+    if (window.innerWidth <= 860) h = w;
+    px = Math.max(240, Math.floor(Math.min(w, h)));
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    cv.style.width = px + 'px'; cv.style.height = px + 'px';
+    cv.width = Math.round(px * dpr); cv.height = Math.round(px * dpr);
+    stat.width = cv.width; stat.height = cv.height;
+    var mg = px < 520 ? 1.3 : 2.5; VIEW0 = -mg; VIEW = 15 + 2 * mg;
+    S1 = px / VIEW;
+    drawStatic();
+  }
+  function world(c) { var k = S1 * dpr; c.setTransform(k, 0, 0, k, -VIEW0 * k, -VIEW0 * k); }
+  function rrect(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h); c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r); c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath();
+  }
+  function dimple(c, x, y, r) {
+    var g = c.createRadialGradient(x, y - r * 0.15, r * 0.1, x, y, r);
+    g.addColorStop(0, 'rgba(30,16,6,.34)'); g.addColorStop(0.75, 'rgba(30,16,6,.2)'); g.addColorStop(1, 'rgba(30,16,6,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 0.035;
+    c.beginPath(); c.arc(x, y, r * 0.86, 0.5, 2.6); c.stroke();
+  }
+
+  function drawStatic() {
+    var c = stat.getContext('2d'), i, k, s, rc, p;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = '#152b2b'; c.fillRect(0, 0, stat.width, stat.height);
+    world(c);
+    // table planks
+    for (i = 0; i < 9; i++) {
+      var y0 = -2.5 + i * 2.5;
+      c.fillStyle = i % 2 ? 'rgba(255,255,255,.022)' : 'rgba(0,0,0,.05)';
+      c.fillRect(-2.5, y0, 20, 2.5);
+      c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(-2.5, y0, 20, 0.05);
+    }
+    var vg = c.createRadialGradient(7.5, 7.5, 6, 7.5, 7.5, 15);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.38)');
+    c.fillStyle = vg; c.fillRect(-2.5, -2.5, 20, 20);
+    // board shadow + frame
+    c.save(); c.shadowColor = 'rgba(0,0,0,.55)'; c.shadowBlur = 0.9 * S1 * dpr; c.shadowOffsetX = 0.2 * S1 * dpr; c.shadowOffsetY = 0.32 * S1 * dpr;
+    c.fillStyle = '#6a3d1b'; rrect(c, -0.3, -0.3, 15.6, 15.6, 0.22); c.fill(); c.restore();
+    var fg = c.createLinearGradient(0, -0.3, 0, 15.3);
+    fg.addColorStop(0, '#96602f'); fg.addColorStop(0.5, '#7a4a22'); fg.addColorStop(1, '#5d3516');
+    c.fillStyle = fg; rrect(c, -0.3, -0.3, 15.6, 15.6, 0.22); c.fill();
+    c.fillStyle = '#f1e4c3'; c.fillRect(0, 0, 15, 15);
+    // yards
+    var yo = [[0, 0], [9, 0], [9, 9], [0, 9]];
+    for (s = 0; s < 4; s++) {
+      c.fillStyle = COL[s].paint; rrect(c, yo[s][0] + 0.12, yo[s][1] + 0.12, 5.76, 5.76, 0.3); c.fill();
+      c.fillStyle = '#f1e4c3'; c.beginPath(); c.arc(Ludo.YC[s][0], Ludo.YC[s][1], 2.25, 0, 6.2832); c.fill();
+      c.strokeStyle = 'rgba(43,26,14,.55)'; c.lineWidth = 0.05; c.stroke();
+    }
+    // cells
+    c.lineWidth = 0.035; c.strokeStyle = 'rgba(43,26,14,.6)';
+    function cell(rc, fill) {
+      if (fill) { c.fillStyle = fill; c.fillRect(rc[1], rc[0], 1, 1); }
+      c.strokeRect(rc[1], rc[0], 1, 1);
+    }
+    for (i = 0; i < 52; i++) { s = Ludo.START.indexOf(i); cell(Ludo.TRACK[i], s >= 0 ? COL[s].paint : null); }
+    for (s = 0; s < 4; s++) for (k = 0; k < 5; k++) cell(Ludo.laneCell(s, k), COL[s].paint);
+    // centre
+    var tri = [[[6, 6], [6, 9]], [[6, 6], [9, 6]], [[9, 6], [9, 9]], [[6, 9], [9, 9]]];
+    for (s = 0; s < 4; s++) {
+      c.fillStyle = COL[s].paint; c.beginPath(); c.moveTo(tri[s][0][0], tri[s][0][1]); c.lineTo(tri[s][1][0], tri[s][1][1]); c.lineTo(7.5, 7.5); c.closePath(); c.fill(); c.stroke();
+    }
+    c.lineWidth = 0.07; c.strokeStyle = 'rgba(43,26,14,.8)'; c.strokeRect(0, 0, 15, 15);
+    // dimples
+    for (i = 0; i < 52; i++) { p = Ludo.nodePos('T' + i); dimple(c, p[0], p[1], 0.36); }
+    for (s = 0; s < 4; s++) {
+      for (k = 0; k < 5; k++) { p = Ludo.nodePos('L' + s + k); dimple(c, p[0], p[1], 0.36); }
+      for (k = 0; k < 4; k++) {
+        p = Ludo.nodePos('Y' + s + k); dimple(c, p[0], p[1], 0.42);
+        var dx = p[0] - Ludo.YC[s][0], dy = p[1] - Ludo.YC[s][1];
+        c.save(); c.translate(p[0] + dx * 0.62, p[1] + dy * 0.62); c.scale(0.021, 0.021);
+        c.font = '600 20px Figtree, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillStyle = 'rgba(43,26,14,.5)'; c.fillText(String(k + 1), 0, 0); c.restore();
+      }
+    }
+    // glass sheen
+    var sh = c.createLinearGradient(0, 0, 15, 15);
+    sh.addColorStop(0.18, 'rgba(255,255,255,0)'); sh.addColorStop(0.3, 'rgba(255,255,255,.09)'); sh.addColorStop(0.36, 'rgba(255,255,255,0)');
+    sh.addColorStop(0.62, 'rgba(255,255,255,0)'); sh.addColorStop(0.7, 'rgba(255,255,255,.05)'); sh.addColorStop(0.78, 'rgba(255,255,255,0)');
+    c.fillStyle = sh; c.fillRect(0, 0, 15, 15);
+  }
+
+  function marble(x, y, r, s, lift, alpha) {
+    lift = lift || 0;
+    ctx.globalAlpha = (alpha == null ? 1 : alpha) * 0.4;
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(x + 0.07 + lift * 0.3, y + 0.1 + lift * 0.45, r * 0.95, r * 0.8, 0, 0, 6.2832); ctx.fill();
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    var rr = r * (1 + lift * 0.22), yy = y - lift * 0.12;
+    var g = ctx.createRadialGradient(x - rr * 0.32, yy - rr * 0.38, rr * 0.05, x, yy, rr);
+    g.addColorStop(0, COL[s].light); g.addColorStop(0.45, COL[s].base); g.addColorStop(1, COL[s].dark);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, yy, rr, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.ellipse(x - rr * 0.36, yy - rr * 0.42, rr * 0.2, rr * 0.13, -0.6, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.ellipse(x + rr * 0.3, yy + rr * 0.42, rr * 0.3, rr * 0.14, -0.6, 0, 6.2832); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  var STACK = [[[0, 0]], [[-0.17, 0], [0.17, 0]], [[-0.18, 0.12], [0.18, 0.12], [0, -0.17]], [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]];
+  function marblePos(S, s, i) {
+    var loc = S.m[s][i];
+    if (loc === 'X') return null;
+    if (loc === 'H') return { p: Ludo.nodePos('H', s, i), r: 0.21 };
+    var mates = [];
+    for (var j = 0; j < 4; j++) if (S.m[s][j] === loc) mates.push(j);
+    var p = Ludo.nodePos(loc), n = mates.length, o = STACK[n - 1][mates.indexOf(i)];
+    return { p: [p[0] + o[0], p[1] + o[1]], r: n > 1 ? 0.27 : 0.35 };
+  }
+
+  /* ---------------- die drawing ---------------- */
+  function proj(x, y, z) { var f = CAM / (CAM - z); return [7.5 + (x - 7.5) * f, 7.5 + (y - 7.5) * f]; }
+  var LIGHT = [-0.35, -0.45, 0.82];
+  var PIPS = { 1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
+  function drawDie(pose, alpha) {
+    var H = DiePhysics.H, R = DiePhysics.rotM([pose[3], pose[4], pose[5], pose[6]]);
+    var x = pose[0], y = pose[1], z = pose[2];
+    var onBoard = x >= 0 && x <= 15 && y >= 0 && y <= 15;
+    var gz = onBoard ? 0 : -DiePhysics.THICK, hgt = Math.max(0, z - H - gz);
+    var sp = proj(x + hgt * 0.22, y + hgt * 0.32, gz), sr = H * 1.35 + hgt * 0.12;
+    var sg = ctx.createRadialGradient(sp[0], sp[1], sr * 0.3, sp[0], sp[1], sr * 1.25);
+    var sa = 0.5 / (1 + hgt * 0.45) * (alpha == null ? 1 : alpha);
+    sg.addColorStop(0, 'rgba(0,0,0,' + sa + ')'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sp[0], sp[1], sr * 1.25, 0, 6.2832); ctx.fill();
+    var faces = [], j, sgn;
+    for (j = 0; j < 3; j++) for (sgn = 1; sgn >= -1; sgn -= 2) {
+      var n = [R[j] * sgn, R[3 + j] * sgn, R[6 + j] * sgn];
+      var a = (j + 1) % 3, b = (j + 2) % 3;
+      var u = [R[a], R[3 + a], R[6 + a]], v = [R[b], R[3 + b], R[6 + b]];
+      var c = [x + n[0] * H, y + n[1] * H, z + n[2] * H];
+      if (n[0] * (7.5 - c[0]) + n[1] * (7.5 - c[1]) + n[2] * (CAM - c[2]) <= 0) continue;
+      faces.push({ n: n, u: u, v: v, c: c, val: DiePhysics.FACE[j][sgn > 0 ? 0 : 1] });
+    }
+    faces.sort(function (p, q) { return p.c[2] - q.c[2]; });
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.lineJoin = 'round';
+    for (var f = 0; f < faces.length; f++) {
+      var F = faces[f], l = Math.max(0, F.n[0] * LIGHT[0] + F.n[1] * LIGHT[1] + F.n[2] * LIGHT[2]);
+      var sh = 0.5 + 0.5 * l, col = 'rgb(' + Math.round(250 * sh) + ',' + Math.round(241 * sh) + ',' + Math.round(220 * sh) + ')';
+      var HH = H * 0.94;
+      ctx.beginPath();
+      var cs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      for (var q = 0; q < 4; q++) {
+        var pt = proj(F.c[0] + (F.u[0] * cs[q][0] + F.v[0] * cs[q][1]) * HH, F.c[1] + (F.u[1] * cs[q][0] + F.v[1] * cs[q][1]) * HH, F.c[2] + (F.u[2] * cs[q][0] + F.v[2] * cs[q][1]) * HH);
+        if (q) ctx.lineTo(pt[0], pt[1]); else ctx.moveTo(pt[0], pt[1]);
+      }
+      ctx.closePath(); ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = H * 0.14; ctx.fill(); ctx.stroke();
+      var pips = PIPS[F.val], pr = F.val === 1 ? 0.2 * H : 0.15 * H, d = 0.5 * H;
+      ctx.fillStyle = F.val === 1 ? 'rgb(' + Math.round(190 * sh) + ',30,24)' : 'rgb(' + Math.round(48 * sh) + ',' + Math.round(30 * sh) + ',' + Math.round(18 * sh) + ')';
+      for (var pi = 0; pi < pips.length; pi++) {
+        ctx.beginPath();
+        for (var th = 0; th < 12; th++) {
+          var ca = pips[pi][0] * d + pr * Math.cos(th * 0.5236), cb = pips[pi][1] * d + pr * Math.sin(th * 0.5236);
+          var pp = proj(F.c[0] + F.u[0] * ca + F.v[0] * cb, F.c[1] + F.u[1] * ca + F.v[1] * cb, F.c[2] + F.u[2] * ca + F.v[2] * cb);
+          if (th) ctx.lineTo(pp[0], pp[1]); else ctx.moveTo(pp[0], pp[1]);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function framePose(tr, t) {
+    var n = tr.length / 7, f = Math.min(n - 1, Math.max(0, t * DiePhysics.simulate.fps)), i = Math.floor(f), k = f - i, j = Math.min(n - 1, i + 1);
+    var a = tr.slice(i * 7, i * 7 + 7), b = tr.slice(j * 7, j * 7 + 7), o = [], d = a[3] * b[3] + a[4] * b[4] + a[5] * b[5] + a[6] * b[6], sg = d < 0 ? -1 : 1, q;
+    for (q = 0; q < 3; q++) o.push(a[q] + (b[q] - a[q]) * k);
+    var w = []; for (q = 3; q < 7; q++) w.push(a[q] + (b[q] * sg - a[q]) * k);
+    var nl = Math.sqrt(w[0] * w[0] + w[1] * w[1] + w[2] * w[2] + w[3] * w[3]) || 1;
+    return o.concat([w[0] / nl, w[1] / nl, w[2] / nl, w[3] / nl]);
+  }
+  DiePhysics.simulate.fps = 30;
+  function spinHand(dt) {
+    var w = carry ? [2.2, 1.6, 1.1] : [0.25, 0.4, 0.5], q = handQ, h = 0.5 * dt;
+    var nq = [q[0] + h * (-w[0] * q[1] - w[1] * q[2] - w[2] * q[3]), q[1] + h * (w[0] * q[0] + w[1] * q[3] - w[2] * q[2]), q[2] + h * (-w[0] * q[3] + w[1] * q[0] + w[2] * q[1]), q[3] + h * (w[0] * q[2] - w[1] * q[1] + w[2] * q[0])];
+    var nl = Math.sqrt(nq[0] * nq[0] + nq[1] * nq[1] + nq[2] * nq[2] + nq[3] * nq[3]);
+    handQ = [nq[0] / nl, nq[1] / nl, nq[2] / nl, nq[3] / nl];
+  }
+
+  /* ---------------- frame ---------------- */
+  var lastT = 0;
+  function ring(p, r, color, w) { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 6.2832); ctx.stroke(); }
+  function markOf(mv) { return mv.hit || mv.dest; }
+  function destPos(mv) { var k = markOf(mv); return k === 'H' ? [7.5, 7.5] : Ludo.nodePos(k); }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - lastT) / 1000 || 0); lastT = now;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(stat, 0, 0);
+    world(ctx);
+    if (!shown) return;
+    var S = shown, t = now / 1000, s, i, mp;
+    var hideM = null, hideV = null, extra = [];
+    var diePose = null, dieAlpha = 1;
+
+    if (anim && anim.type === 'move') {
+      var el = Math.max(0, (now - anim.t0) / 1000), hop = anim.hop, L = anim.pts.length - 1, f = el / hop;
+      hideM = anim.seat + ':' + anim.i;
+      if (f < L) {
+        var si = Math.floor(f), k = f - si, e = k * k * (3 - 2 * k), a = anim.pts[si], b = anim.pts[si + 1];
+        extra.push({ p: [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e], r: 0.33, s: anim.seat, lift: Math.sin(k * Math.PI) });
+      } else {
+        extra.push({ p: anim.pts[L], r: 0.33, s: anim.seat, lift: 0 });
+        if (anim.kill) {
+          var kt = Math.min(1, (el - L * hop) / anim.killDur), ke = kt * kt * (3 - 2 * kt);
+          hideV = anim.kill.s + ':' + anim.kill.i;
+          if (anim.kill.to === 'X') extra.unshift({ p: anim.vfrom, r: 0.33 * (1 - ke * 0.4), s: anim.kill.s, lift: 0, alpha: 1 - ke });
+          else extra.push({ p: [anim.vfrom[0] + (anim.vto[0] - anim.vfrom[0]) * ke, anim.vfrom[1] + (anim.vto[1] - anim.vfrom[1]) * ke], r: 0.33, s: anim.kill.s, lift: Math.sin(kt * Math.PI) * 2.2 });
+          if (kt >= 1) finishAnim();
+        } else if (el >= L * hop + 0.08) finishAnim();
+      }
+    }
+    if (anim && anim.type === 'roll') {
+      var rt = Math.max(0, (now - anim.t0) / 1000);
+      diePose = framePose(anim.traj, rt);
+      if (anim.gone && rt > anim.dur) diePose = null;
+      if (rt >= anim.dur + anim.hold) finishAnim();
+    }
+    if (S !== shown) { extra = []; hideM = null; hideV = null; } // an animation just finished
+    S = shown;
+    if (!S) return;
+
+    // hints under the marbles
+    var acting = idle() && S.phase === 'move' && canAct(S.mover);
+    var moves = acting ? currentMoves() : [];
+    if (acting) {
+      var pulse = 0.5 + 0.5 * Math.sin(t * 5), seen = {};
+      for (i = 0; i < moves.length; i++) {
+        var loc = S.m[S.mover][moves[i].i];
+        if (seen[loc]) continue; seen[loc] = 1;
+        ring(Ludo.nodePos(loc), 0.47 + pulse * 0.05, 'rgba(255,255,255,' + (0.55 + 0.4 * pulse) + ')', 0.07);
+      }
+      var focus = sel || hover;
+      if (focus) {
+        var fm = movesFrom(moves, focus);
+        for (i = 0; i < fm.length; i++) {
+          var mvx = fm[i], dp = destPos(mvx);
+          ctx.fillStyle = mvx.kill ? 'rgba(20,10,5,.5)' : 'rgba(255,255,255,.4)';
+          ctx.beginPath(); ctx.arc(dp[0], dp[1], 0.44, 0, 6.2832); ctx.fill();
+          ring(dp, 0.46, mvx.kill ? '#fff' : COL[S.mover].dark, 0.09);
+          if (mvx.via) { var lp = Ludo.nodePos(mvx.via); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 0.07; ctx.setLineDash([0.16, 0.12]); ctx.beginPath(); ctx.moveTo(lp[0], lp[1]); ctx.lineTo(dp[0], dp[1]); ctx.stroke(); ctx.setLineDash([]); ring(lp, 0.3, 'rgba(255,255,255,.9)', 0.06); }
+          if (mvx.kill) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.moveTo(dp[0] - 0.62, dp[1]); ctx.lineTo(dp[0] - 0.32, dp[1]); ctx.moveTo(dp[0] + 0.32, dp[1]); ctx.lineTo(dp[0] + 0.62, dp[1]); ctx.moveTo(dp[0], dp[1] - 0.62); ctx.lineTo(dp[0], dp[1] - 0.32); ctx.moveTo(dp[0], dp[1] + 0.32); ctx.lineTo(dp[0], dp[1] + 0.62); ctx.stroke(); }
+        }
+      }
+    }
+    // marbles
+    for (s = 0; s < 4; s++) {
+      if (!S.seats[s]) continue;
+      for (i = 0; i < 4; i++) {
+        var id = s + ':' + i;
+        if (id === hideM || id === hideV) continue;
+        mp = marblePos(S, s, i);
+        if (mp) marble(mp.p[0], mp.p[1], mp.r, s, 0);
+      }
+    }
+    for (i = 0; i < extra.length; i++) marble(extra[i].p[0], extra[i].p[1], extra[i].r, extra[i].s, extra[i].lift, extra[i].alpha);
+
+    // die
+    if (!(anim && anim.type === 'roll')) {
+      if (S.phase === 'roll' && !anim && !queue.length) {
+        var key = S.gid + ':' + S.seq;
+        if (handFor !== key) { handFor = key; handQ = DiePhysics.randomQuat(Math.random); carry = null; }
+        spinHand(dt);
+        var hc = Ludo.YC[S.turn], hx = hc[0], hy = hc[1], hz = 1.35 + 0.1 * Math.sin(t * 2.4);
+        if (carry) { hx = carry.x; hy = carry.y; hz = 1.7; }
+        if (canAct(S.turn) && !carry) ring(proj(hx, hy, 0), 1.25 + 0.08 * Math.sin(t * 4), 'rgba(255,255,255,.75)', 0.07);
+        diePose = [hx, hy, hz].concat(handQ);
+      } else if (S.diePose) diePose = S.diePose;
+    }
+    if (diePose) drawDie(diePose, dieAlpha);
+  }
+
+  /* ---------------- animation queue ---------------- */
+  function setShown(S) { shown = S; sel = null; hover = null; renderRail(); }
+  function hardSet(S) { queue = []; anim = null; latest = S; overDismissed = false; setShown(S); }
+  function ingest(S) {
+    if (!S) return;
+    if (!latest || latest.gid !== S.gid) { hardSet(S); return; }
+    if (S.seq < latest.seq) return;
+    if (S.seq === latest.seq) { if (S.aid !== latest.aid) hardSet(S); return; }
+    latest = S; queue.push(S); pump();
+  }
+  function pump() {
+    if (anim || !queue.length) return;
+    if (queue.length > 3) { var end = queue[queue.length - 1]; queue = []; setShown(end); return; }
+    var nx = queue.shift(), L = nx.last;
+    if (!shown || nx.seq !== shown.seq + 1 || !L) { setShown(nx); pump(); return; }
+    if (L.type === 'roll' && L.traj && L.traj.length >= 14) {
+      carry = null;
+      anim = { type: 'roll', next: nx, traj: L.traj, t0: performance.now(), dur: (L.traj.length / 7 - 1) / 30, hold: L.gone ? 0.25 : 0.55, gone: L.gone };
+    } else if (L.type === 'move') {
+      var pts = [], st = marblePos(shown, L.seat, L.i);
+      for (var q = 0; q < L.path.length; q++) pts.push(L.path[q] === 'H' ? Ludo.nodePos('H', L.seat, L.i) : Ludo.nodePos(L.path[q]));
+      if (st) pts[0] = st.p;
+      anim = { type: 'move', next: nx, seat: L.seat, i: L.i, pts: pts, t0: performance.now(), hop: reduced ? 0.05 : 0.17, kill: L.kill, killDur: reduced ? 0.1 : 0.5 };
+      if (L.kill) { var vp = marblePos(shown, L.kill.s, L.kill.i); anim.vfrom = vp ? vp.p : pts[pts.length - 1]; anim.vto = L.kill.to === 'X' ? anim.vfrom : Ludo.nodePos(L.kill.to); }
+    } else { setShown(nx); pump(); return; }
+    renderRail();
+  }
+  function finishAnim() {
+    var a = anim; anim = null;
+    setShown(a.next);
+    var L = a.next.last;
+    if (L && L.type === 'roll') {
+      if (L.off) banner(nameOf(L.by) + '’s die left the board. Turn lost.');
+      else if (L.nomove) banner(nameOf(L.by) + ' threw ' + L.value + '. No move to make.');
+    }
+    pump();
+  }
+  var bannerT = 0;
+  function banner(text) { var b = $('banner'); b.textContent = text; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(function () { b.classList.remove('on'); }, 2600); }
+
+  function commit(S) {
+    S.aid = String(Math.random()).slice(2, 10);
+    latest = S; queue.push(S); pump();
+    if (mode === 'online') pushState(S);
+  }
+  function currentMoves() {
+    if (!shown || shown.phase !== 'move') return [];
+    if (currentMoves.key !== shown.gid + ':' + shown.seq) { currentMoves.key = shown.gid + ':' + shown.seq; currentMoves.val = Ludo.turnMoves(shown).moves; }
+    return currentMoves.val;
+  }
+
+  /* ---------------- input ---------------- */
+  function toWorld(ev) { var r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) / r.width * VIEW + VIEW0, (ev.clientY - r.top) / r.height * VIEW + VIEW0]; }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function nodeAt(p, keys) {
+    var best = null, bd = 0.72;
+    for (var i = 0; i < keys.length; i++) {
+      var q = keys[i] === 'H' ? [7.5, 7.5] : Ludo.nodePos(keys[i]), d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      if (keys[i] === 'H') d -= 0.7;
+      if (d < bd) { bd = d; best = keys[i]; }
+    }
+    return best;
+  }
+  function movableLocs(moves) { var o = [], S = shown; for (var i = 0; i < moves.length; i++) { var l = S.m[S.mover][moves[i].i]; if (o.indexOf(l) < 0) o.push(l); } return o; }
+  function movesFrom(moves, loc) { var o = [], seen = {}; for (var i = 0; i < moves.length; i++) { if (shown.m[shown.mover][moves[i].i] !== loc || seen[markOf(moves[i])]) continue; seen[markOf(moves[i])] = 1; o.push(moves[i]); } return o; }
+  function play(mv) { sel = null; hover = null; commit(Ludo.applyMove(Ludo.clone(shown), mv)); }
+
+  cv.addEventListener('pointerdown', function (ev) {
+    if (!shown || !idle()) return;
+    var p = toWorld(ev), S = shown;
+    if (S.phase === 'roll' && canAct(S.turn)) {
+      var hc = Ludo.YC[S.turn];
+      if (Math.hypot(p[0] - hc[0], p[1] - hc[1]) < 1.9) {
+        carry = { x: hc[0], y: hc[1], id: ev.pointerId, sm: [{ t: performance.now(), p: p }] };
+        try { cv.setPointerCapture(ev.pointerId); } catch (e) { }
+        ev.preventDefault();
+      }
+      return;
+    }
+    if (S.phase === 'move' && canAct(S.mover)) {
+      var moves = currentMoves(), hit;
+      if (sel) {
+        var ms = movesFrom(moves, sel);
+        hit = nodeAt(p, ms.map(markOf));
+        if (hit) { play(ms.filter(function (m) { return markOf(m) === hit; })[0]); return; }
+      }
+      hit = nodeAt(p, movableLocs(moves));
+      if (hit) sel = hit; // never move on the first press: the player always picks the square
+      else sel = null;
+      renderRail();
+    }
+  });
+  cv.addEventListener('pointermove', function (ev) {
+    if (!shown) return;
+    var p = toWorld(ev);
+    if (carry && ev.pointerId === carry.id) {
+      var hc = Ludo.YC[shown.turn];
+      carry.x = clamp(p[0], hc[0] - 2.5, hc[0] + 2.5); carry.y = clamp(p[1], hc[1] - 2.5, hc[1] + 2.5);
+      carry.sm.push({ t: performance.now(), p: p }); if (carry.sm.length > 12) carry.sm.shift();
+      return;
+    }
+    if (idle() && shown.phase === 'move' && canAct(shown.mover)) hover = nodeAt(p, movableLocs(currentMoves()));
+    else hover = null;
+  });
+  function release(ev) {
+    if (!carry || ev.pointerId !== carry.id) return;
+    var c = carry, now = performance.now(); carry = null;
+    if (!shown || !idle() || shown.phase !== 'roll') return;
+    c.sm.push({ t: now, p: toWorld(ev) });
+    var last = c.sm[c.sm.length - 1], first = last;
+    for (var i = c.sm.length - 1; i >= 0; i--) { if (now - c.sm[i].t > 110) break; first = c.sm[i]; }
+    var dtm = Math.max(0.016, (last.t - first.t) / 1000);
+    // throw strength follows the hand: speed in screen pixels, not board cells
+    var k = (px / VIEW) * 0.0125;
+    var vx = (last.p[0] - first.p[0]) / dtm * k, vy = (last.p[1] - first.p[1]) / dtm * k, sp = Math.hypot(vx, vy);
+    if (sp < 3.5) { banner('Flick it. The die has to roll to count.'); return; }
+    if (sp > 42) { vx *= 42 / sp; vy *= 42 / sp; }
+    var r = DiePhysics.simulate({ x: c.x, y: c.y, vx: vx, vy: vy, q: handQ, walls: shown.settings.loss === false });
+    commit(Ludo.applyRoll(Ludo.clone(shown), { value: r.value, off: r.off, gone: r.gone, traj: r.frames, pose: r.pose }));
+  }
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', function (ev) { if (carry && ev.pointerId === carry.id) carry = null; });
+
+  /* ---------------- side rail ---------------- */
+  function logText(e) {
+    var a = nameOf(e.s);
+    switch (e.k) {
+      case 'roll': return a + ' threw ' + e.v + '.';
+      case 'off': return a + '’s die left the board. Turn lost.';
+      case 'kill': return a + ' eliminated one of ' + nameOf(e.v) + '’s marbles.';
+      case 'dead': return a + ' raided ' + nameOf(e.v) + '’s yard. That marble is out of the game.';
+      case 'labor': return a + ' is now a laborer for ' + nameOf(e.f) + '.';
+      case 'free': return a + ' is back on the board and free.';
+      case 'home': return a + ' brought a marble home.';
+      case 'out': return a + ' has no marbles left.';
+      case 'win': return a + ' wins.';
+      case 'skip': return a + '’s turn was skipped.';
+    }
+    return '';
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function renderRail() {
+    var S = shown, st = $('status'), pl = $('players'), lg = $('log');
+    $('tableTag').textContent = mode === 'online' && Net.code ? 'Table ' + Net.code : mode === 'local' ? 'Playing on this device' : 'House rules, one die';
+    pl.textContent = ''; lg.textContent = ''; st.textContent = '';
+    $('btnLeave').hidden = mode === 'none';
+    if (!S) { st.textContent = 'Set up a game to begin.'; $('btnSkip').hidden = true; st.style.borderLeftColor = ''; return; }
+    var main = '', sub = '', who = S.phase === 'move' ? S.mover : S.turn;
+    if (S.phase === 'over') { main = label(S.winner) + ' wins the game.'; who = S.winner; }
+    else if (anim && anim.type === 'roll') { main = label(anim.next.last.by) + ' throws…'; who = anim.next.last.by; }
+    else if (S.phase === 'roll') {
+      main = canAct(S.turn) && mode === 'online' ? 'Your throw.' : label(S.turn) + ' to throw.';
+      if (S.pool.length) main = (canAct(S.turn) && mode === 'online' ? 'You threw a 6. Throw again.' : label(S.turn) + ' threw a 6 and throws again.') + ' Holding ' + S.pool.join(', ') + '.';
+      sub = canAct(S.turn) ? 'Press the die over the ' + NAMES[S.turn].toLowerCase() + ' yard, then flick it.' : '';
+      if (S.labor[S.turn] >= 0) sub = 'Laboring for ' + nameOf(S.labor[S.turn]) + ': anything but a 6 moves their marbles. ' + sub;
+      else if (S.pool.length && canAct(S.turn)) sub = 'Nothing is counted until you throw something other than a 6. ' + sub;
+    } else {
+      main = (canAct(S.mover) && mode === 'online' ? 'You move. ' : label(S.mover) + ' moves. ') + (S.pool.length > 1 ? 'Dice to count: ' : 'Counting ') + S.pool.join(', ') + '.';
+      if (S.mover !== S.turn) sub = 'Thrown by ' + nameOf(S.turn) + ', their laborer. ';
+      if (canAct(S.mover)) sub += sel ? 'Now press the square it should go to. Press another marble to change your mind.' : 'Press a ringed marble to see where it can go' + (S.pool.length > 1 ? ' with each die.' : '.');
+    }
+    st.appendChild(document.createTextNode(main)); if (sub) st.appendChild(el('span', '', sub));
+    st.style.borderLeftColor = COL[who].paint;
+    for (var c = 0; c < 4; c++) {
+      if (!S.seats[c]) continue;
+      var li = el('li', (S.phase !== 'over' && who === c ? 'turn' : '') + (S.out[c] ? ' gone' : ''));
+      var chip = el('span', 'chip'); chip.style.background = COL[c].base; li.appendChild(chip);
+      var nm = el('span', 'pname', label(c));
+      var note = S.out[c] ? 'Out of the game' : S.labor[c] >= 0 ? 'Laborer for ' + nameOf(S.labor[c]) : '';
+      if (note) nm.appendChild(el('span', 'pnote', note));
+      li.appendChild(nm);
+      var tl = el('span', 'tally'), h = 0;
+      tl.setAttribute('aria-label', Ludo.count(S, c, 'H') + ' home, ' + Ludo.onBoardCount(S, c) + ' on the board, ' + Ludo.yardCount(S, c) + ' in the yard, ' + Ludo.count(S, c, 'X') + ' lost');
+      for (var i = 0; i < 4; i++) { var l = S.m[c][i]; tl.appendChild(el('i', l === 'H' ? 'h' : l === 'X' ? 'x' : Ludo.isOwnYard(l, c) ? '' : 'b')); }
+      li.appendChild(tl); pl.appendChild(li);
+    }
+    for (var q = S.log.length - 1; q >= 0; q--) lg.appendChild(el('li', '', logText(S.log[q])));
+    var host = mode === 'online' && Net.meta && Net.meta.host === Net.uid;
+    $('btnSkip').hidden = !(host && S.phase !== 'over' && !canAct(who));
+    if (S.phase === 'over' && !overDismissed && !anim) showOver(); else if (S.phase !== 'over') hide('shOver');
+  }
+  function showOver() {
+    $('ovTitle').textContent = label(shown.winner) + ' wins';
+    var host = mode !== 'online' || (Net.meta && Net.meta.host === Net.uid);
+    $('ovMsg').textContent = host ? 'Set the marbles up again when everyone is ready.' : 'The host can set up the next game.';
+    $('btnAgain').hidden = !host;
+    show('shOver');
+  }
+  function show(id) { $(id).classList.add('on'); }
+  function hide(id) { $(id).classList.remove('on'); }
+
+  /* ---------------- local game ---------------- */
+  function startLocal(n) {
+    leaveOnline();
+    mode = 'local';
+    var seats = n === 2 ? [true, false, true, false] : n === 3 ? [true, true, true, false] : [true, true, true, true];
+    hide('shHome'); hide('shOver');
+    hardSet(Ludo.newGame(seats, { yardRaids: $('ckRaidLocal').checked, loss: $('ckLossLocal').checked }));
+    startLocal.n = n;
+  }
+
+  /* ---------------- online ---------------- */
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function onlineOK() { return !!Net.db; }
+  function refreshHome() {
+    var ok = onlineOK();
+    $('btnCreate').disabled = Net.ready && (!ok || Net.canWrite === false);
+    if (P2P) {
+      $('nameWrap').hidden = false;
+      $('onlineNote').textContent = !Net.ready ? 'Getting online play ready\u2026' : ok ? 'Anyone with the link can join, no account needed. The player who starts the table hosts it, so their tab has to stay open.' : 'Online play could not load. Check your internet connection and reload the page.';
+      return;
+    }
+    $('onlineNote').textContent = !Net.ready ? 'Checking whether online tables are available…'
+      : !ok ? 'Online tables can’t be reached from this view. Sign in to Claude and open the page from the link you were sent, or play on this device.'
+        : Net.canWrite === false ? 'You have view-only access to this page, so you can join a table to watch but not play. Ask the owner for edit access.'
+          : 'Players need edit access to this page. Anyone else who can open it can watch.';
+  }
+  async function initNet() {
+    try {
+      if (window.claude && window.claude.use) {
+        var r = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+        Net.db = r[0]; Net.user = r[1];
+        if (Net.user) { Net.uid = await Net.user.id(); Net.canWrite = await Net.user.can('data.write'); }
+        if (!Net.uid && Net.db) { // some invited guests get no account id here: keep one for this browser
+          var pid = null;
+          try { pid = localStorage.getItem('ludo-player'); } catch (e) { }
+          if (!pid) { pid = 'p_' + Math.random().toString(36).slice(2, 12); try { localStorage.setItem('ludo-player', pid); } catch (e) { } }
+          Net.uid = pid;
+        }
+      }
+    } catch (e) { }
+    Net.ready = true; refreshHome();
+    if (pendingCode) { var c = pendingCode; pendingCode = null; if (onlineOK()) joinTable(c); }
+  }
+  function newCode() { var a = 'abcdefghjkmnpqrstuvwxyz23456789', s = ''; for (var i = 0; i < 5; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
+  function setHash(code) { try { var h = code ? '#g-' + code : '#start'; if (location.hash !== h && (code || location.hash)) location.hash = h; } catch (e) { } }
+  function seatsArr(o) { o = o || {}; return [o[0] || o['0'] || null, o[1] || o['1'] || null, o[2] || o['2'] || null, o[3] || o['3'] || null]; }
+
+  async function createTable() {
+    if (!onlineOK() || !Net.uid) return;
+    var code = newCode(), seats = { 0: Net.uid, 1: null, 2: null, 3: null };
+    $('btnCreate').disabled = true;
+    try {
+      await Net.db.doc('games/' + code).set({ v: 1, host: Net.uid, status: 'lobby', seats: seats, settings: { yardRaids: true, loss: true }, names: namePatch(), seq: 0, s: '', created: Date.now() });
+      joinTable(code);
+    } catch (e) {
+      if (P2P) $('onlineNote').textContent = 'Could not start a table. Check your internet connection and try again.'; else { Net.canWrite = false; refreshHome(); $('onlineNote').textContent = 'Could not start a table: you have view-only access to this page. Ask the owner for edit access.'; }
+    }
+    $('btnCreate').disabled = false;
+  }
+  function leaveOnline() {
+    if (Net.unsub) { try { Net.unsub(); } catch (e) { } }
+    clearTimeout(Net.timer);
+    Net.unsub = null; Net.doc = null; Net.code = null; Net.meta = null;
+  }
+  function goHome() {
+    leaveOnline(); mode = 'none'; shown = null; latest = null; queue = []; anim = null;
+    setHash(''); hide('shLobby'); hide('shOver'); show('shHome'); renderRail(); refreshHome();
+  }
+  function joinTable(code) {
+    leaveOnline();
+    mode = 'online'; shown = null; latest = null; queue = []; anim = null;
+    Net.code = code; Net.doc = Net.db.doc('games/' + code);
+    setHash(code);
+    hide('shHome'); hide('shOver'); show('shLobby');
+    $('lbCode').textContent = code; $('lbSeats').textContent = ''; $('lbMsg').textContent = 'Finding the table…';
+    $('btnStart').hidden = true; $('lbRaidWrap').hidden = true; $('lbLossWrap').hidden = true;
+    renderRail();
+    Net.timer = setTimeout(function () { if (!Net.meta) $('lbMsg').textContent = 'The table can’t be reached yet. Still trying.'; }, 10000);
+    Net.unsub = Net.doc.onSnapshot(onSnap, function () {
+      clearTimeout(Net.timer);
+      $('lbMsg').textContent = 'The connection to this table was lost. Leave and join again.';
+      banner('Connection to the table was lost.');
+    });
+  }
+  var lastS = '';
+  function onSnap(snap) {
+    if (!Net.doc) return;
+    if (!snap.exists) {
+      if (snap.metadata && snap.metadata.fromCache) return;
+      clearTimeout(Net.timer);
+      if (!Net.meta) { $('lbMsg').textContent = 'There is no table with this code. Check the code, or leave and start a new table.'; }
+      return;
+    }
+    clearTimeout(Net.timer);
+    var d = snap.data();
+    Net.meta = { host: d.host, status: d.status, seats: seatsArr(d.seats), settings: d.settings || { yardRaids: true } };
+    resolveNames();
+    if (d.status === 'lobby') {
+      lastS = ''; shown = null; latest = null; queue = []; anim = null;
+      hide('shOver'); show('shLobby'); renderLobby(); renderRail();
+      return;
+    }
+    hide('shLobby');
+    if (d.s && d.s !== lastS) {
+      lastS = d.s;
+      var S = null; try { S = JSON.parse(d.s); } catch (e) { }
+      if (S && S.m && S.seats) ingest(S);
+    }
+    renderRail();
+  }
+  function resolveNames() {
+    if (!Net.user || !Net.meta) return;
+    var ids = Net.meta.seats.filter(Boolean);
+    if (!ids.length) return;
+    Net.user.profiles(ids).then(function (ps) {
+      var changed = false;
+      ids.forEach(function (id) { var n = ps && ps[id] && ps[id].name; if (n && Net.names[id] !== n) { Net.names[id] = n; changed = true; } });
+      if (changed) { renderRail(); if (Net.meta && Net.meta.status === 'lobby') renderLobby(); }
+    });
+  }
+  function renderLobby() {
+    var M = Net.meta, ul = $('lbSeats'), me = mySeat(), host = M.host === Net.uid, n = 0;
+    ul.textContent = '';
+    for (var c = 0; c < 4; c++) {
+      var li = el('li'), chip = el('span', 'chip'); chip.style.background = COL[c].base; li.appendChild(chip);
+      var id = M.seats[c];
+      if (id) n++;
+      li.appendChild(el('span', 'pname', id ? (Net.names[id] || NAMES[c] + ' player') + (id === Net.uid ? ' (you)' : '') + (id === M.host ? ', host' : '') : NAMES[c] + ' seat is open'));
+      if (!id && Net.canWrite !== false) { var b = el('button', 'btn', me >= 0 ? 'Move here' : 'Sit here'); b.setAttribute('data-seat', c); li.appendChild(b); }
+      else li.appendChild(el('span'));
+      ul.appendChild(li);
+    }
+    $('lbMsg').textContent = Net.canWrite === false ? 'You have view-only access, so you can watch but not sit. Ask the owner for edit access to this page.'
+      : host ? (n < 2 ? 'Waiting for at least one more player to sit down.' : 'Start when everyone is seated.')
+        : me >= 0 ? 'Waiting for the host to start the game.' : 'Pick a seat to play, or stay to watch.';
+    $('btnStart').hidden = !host; $('btnStart').disabled = n < 2;
+    if (P2P) {
+      $('lbInvite').textContent = host ? 'Send friends this link. You are hosting the table, so keep this tab open until the game is over.' : 'Anyone with this link can join or watch.';
+      $('lbLinkRow').hidden = false; $('lbLink').value = location.href.split('#')[0] + '#g-' + Net.code;
+    }
+    $('lbRaidWrap').hidden = false; $('ckRaid').checked = M.settings.yardRaids !== false; $('ckRaid').disabled = !host;
+    $('lbLossWrap').hidden = false; $('ckLoss').checked = M.settings.loss !== false; $('ckLoss').disabled = !host;
+  }
+  var wq = Promise.resolve();
+  function chain(fn) { wq = wq.then(fn).catch(writeFail); return wq; }
+  async function upd(body) {
+    if (!Net.doc) return;
+    try { await Net.doc.update(body); }
+    catch (e) { if (e && e.code === 'unavailable') { await sleep(400 + Math.random() * 500); await Net.doc.update(body); } else throw e; }
+  }
+  async function writeFail(e) {
+    if (P2P) { banner('That did not reach the host. Reconnecting\u2026'); }
+    else if (e && e.code === 'invalid_argument') { Net.canWrite = false; banner('You have view-only access to this page, so you can watch but not play.'); if (Net.meta && Net.meta.status === 'lobby') renderLobby(); }
+    else banner('That did not save. Reloading the table…');
+    try {
+      if (!Net.doc) return;
+      var snap = await Net.doc.get();
+      if (snap.exists) { var d = snap.data(); if (d.s) { lastS = d.s; hardSet(JSON.parse(d.s)); } }
+    } catch (e) { }
+  }
+  function pushState(S) { var doc = Net.doc, body = { seq: S.seq, s: JSON.stringify(S) }; lastS = body.s; chain(function () { return doc === Net.doc ? upd(body) : null; }); }
+  function sit(c) {
+    var me = mySeat(), patch = {}; patch[c] = Net.uid; if (me >= 0) patch[me] = null;
+    chain(function () { return upd(P2P ? { seats: patch, names: namePatch() } : { seats: patch }); });
+  }
+  function startOnline() {
+    var M = Net.meta; if (!M || M.host !== Net.uid) return;
+    var active = M.seats.map(function (x) { return !!x; });
+    if (active.filter(Boolean).length < 2) return;
+    var S = Ludo.newGame(active, M.settings); S.aid = 'start';
+    chain(function () { return upd({ status: 'playing', seq: S.seq, s: JSON.stringify(S) }); });
+  }
+
+  /* ---------------- buttons ---------------- */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest ? ev.target.closest('button') : null; if (!t) return;
+    if (t.hasAttribute('data-rules')) show('shRules');
+    else if (t.hasAttribute('data-local')) startLocal(+t.getAttribute('data-local'));
+    else if (t.hasAttribute('data-seat')) sit(+t.getAttribute('data-seat'));
+  });
+  $('btnRules').onclick = function () { show('shRules'); };
+  $('btnRulesClose').onclick = function () { hide('shRules'); };
+  $('btnCreate').onclick = createTable;
+  function joinFromInput() {
+    var v = $('inCode').value.trim().toLowerCase().replace(/^.*#/, '').replace(/^g-/, '').replace(/[^a-z0-9]/g, '');
+    if (!/^[a-z0-9]{4,8}$/.test(v)) { $('onlineNote').textContent = 'Enter the table code: 5 letters and digits, like k7m2q.'; return; }
+    if (!Net.ready) { pendingCode = v; $('onlineNote').textContent = 'Connecting… the table will open in a moment.'; return; }
+    if (!onlineOK()) { refreshHome(); return; }
+    joinTable(v);
+  }
+  $('btnJoin').onclick = joinFromInput;
+  $('inCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') joinFromInput(); });
+  $('btnStart').onclick = startOnline;
+  $('btnCopy').onclick = function () {
+    var inp = $('lbLink'), b = $('btnCopy');
+    function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy link'; }, 1600); }
+    try { navigator.clipboard.writeText(inp.value).then(done, function () { inp.focus(); inp.select(); }); } catch (e) { inp.focus(); inp.select(); }
+  };
+  try { $('inName').value = localStorage.getItem('ludo-name') || ''; } catch (e) { }
+  window.__netStatus = function (text) { if (text) banner(text); };
+  $('ckLoss').onchange = function () { var v = $('ckLoss').checked; chain(function () { return upd({ settings: { loss: v } }); }); };
+  $('ckRaid').onchange = function () { var v = $('ckRaid').checked; chain(function () { return upd({ settings: { yardRaids: v } }); }); };
+  $('btnLobbyLeave').onclick = function () {
+    var me = mySeat();
+    if (me >= 0 && Net.meta && Net.meta.status === 'lobby' && Net.meta.host !== Net.uid) { var patch = {}; patch[me] = null; var doc = Net.doc; doc.update({ seats: patch }).catch(function () { }); }
+    goHome();
+  };
+  $('btnLeave').onclick = goHome;
+  $('btnOverClose').onclick = function () { overDismissed = true; hide('shOver'); };
+  $('btnAgain').onclick = function () {
+    if (mode === 'local') startLocal(startLocal.n || 2);
+    else if (mode === 'online') chain(function () { return upd({ status: 'lobby', seq: 0, s: '' }); });
+  };
+  $('btnSkip').onclick = function () { if (latest && idle() && latest.phase !== 'over') commit(Ludo.skipTurn(Ludo.clone(latest))); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide('shRules'); });
+
+  function readHash() {
+    var m = /^#g-([a-z0-9]{4,8})$/.exec(location.hash || '');
+    if (!m) return;
+    if (Net.code === m[1]) return;
+    if (onlineOK()) joinTable(m[1]); else if (!Net.ready) pendingCode = m[1];
+    $('inCode').value = m[1];
+  }
+  window.addEventListener('hashchange', readHash);
+  window.addEventListener('resize', resize);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawStatic);
+
+  resize(); show('shHome'); refreshHome(); renderRail(); readHash(); initNet();
+  requestAnimationFrame(frame);
+  window.__ludo = { get shown() { return shown; }, get latest() { return latest; }, get mode() { return mode; }, idle: idle, commit: commit, Net: Net, mySeat: mySeat };
+})();
+
+</script>
+</body>
+</html>
