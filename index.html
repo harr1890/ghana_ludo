@@ -95,7 +95,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
       <button class="btn" id="btnSkip" hidden>Skip this turn</button>
       <button class="btn" id="btnLeave">Leave game</button>
     </div>
-    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v8</div>
+    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v9</div>
   </aside>
 </main>
 
@@ -161,7 +161,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   <p>A 6 earns another throw, and nothing is counted yet. You may keep throwing until something other than a 6 comes up, or stop after any 6 and count what you hold. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. A marble that has not moved this turn can. A marble that eliminates is finished for the turn. Every die you threw has to be counted: if no order lets you count them all, you have no move that turn. So with a 6 and a 2, a marble may use the 6 to eliminate only if another marble can take the 2, and a marble five squares from the centre cannot retire on a 5 if you also hold a 6 that nothing can count. Stopping after a 6 avoids picking up a die you cannot use. A 6 can bring a marble out of your yard onto your start square. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
   <h3>Eliminating</h3>
   <p>Land exactly on a single opposing marble to send it back to its yard. Three kinds of move exist only for eliminating:</p>
-  <p><b>Backward.</b> From anywhere on the board, home lanes included, a marble may count backward if it lands exactly on an opponent. From a lane it counts back out to the track and on.</p>
+  <p><b>Backward.</b> From anywhere on the board, home lanes included, a marble may count backward if it lands exactly on an opponent. From a lane it counts back out to the track and on. One marble may also add two or more dice together and count them backward as a single run, for example a 6 and a 5 as 11, as long as the run ends in an elimination: on the square reached, or by a parallel hit from it.</p>
   <p><b>Parallel.</b> When the square you count onto, forward or backward, is straight across an arm from a lone opponent, with exactly the home-lane square between, you may eliminate that marble. Your marble takes its square and carries on from there, which can put it much nearer home. Coming out on a 6 counts: an opponent across the home lane from your start square can be taken. A marble inside a home lane can never be taken this way.</p>
   <p><b>Into a home.</b> A marble may turn into an opponent's home lane, or step from their start square into their yard, if the count lands exactly on a marble there. Yard dimples count 1 to 4 from the start square. A marble hit in its own yard leaves the game. The raider walks back out on later moves.</p>
   <h3>Stacks</h3>
@@ -648,6 +648,41 @@ var Ludo = (function () {
     return moves;
   }
 
+  /* One marble counting several dice backward as a single run: allowed only if the run ends in an
+     elimination, either on the square reached or straight across the arm from it. */
+  function comboBack(S, seat, n, dice) {
+    var occ = occupancy(S), out = [];
+    for (var i = 0; i < 4; i++) {
+      var loc = S.m[seat][i];
+      if (loc === 'H' || loc === 'X' || isOwnYard(loc, seat)) continue;
+      var bp = backwardPath(S, seat, loc, n, occ);
+      if (!bp) continue;
+      var via = bp[bp.length - 1], r = landing(seat, via, true, occ);
+      if (r) { out.push({ i: i, kind: 'back', path: bp, dest: via, kill: r.kill, ds: dice.slice() }); continue; }
+      var here = occ[via];
+      if (here && here.length && here[0].s !== seat) continue;
+      var pt = parallelTargets(via, occ);
+      for (var q = 0; q < pt.length; q++) {
+        var o = occ[pt[q]];
+        if (!o || o.length !== 1 || o[0].s === seat) continue;
+        out.push({ i: i, kind: 'sideback', path: bp.concat(pt[q]), dest: pt[q], via: via, kill: { s: o[0].s, i: o[0].i }, ds: dice.slice() });
+      }
+    }
+    return out;
+  }
+  function subsets(pool) {          // distinct groups of two or more dice
+    var res = [], seen = {};
+    for (var mask = 1; mask < (1 << pool.length); mask++) {
+      var g = [];
+      for (var b = 0; b < pool.length; b++) if (mask & (1 << b)) g.push(pool[b]);
+      if (g.length < 2) continue;
+      var key = g.slice().sort().join(',');
+      if (seen[key]) continue; seen[key] = 1;
+      res.push(g);
+    }
+    return res;
+  }
+
   /* who moves now, and every move the dice allow before the 'use every die you can' rule */
   function rawTurnMoves(S) {
     var roller = S.turn, master = S.labor[roller], res = { mover: roller, moves: [] }, done = {};
@@ -664,7 +699,22 @@ var Ludo = (function () {
       }
     }
     var k;
-    if (master < 0) { for (k = 0; k < S.pool.length; k++) add(roller, S.pool[k]); return res; }
+    if (master < 0) {
+      for (k = 0; k < S.pool.length; k++) add(roller, S.pool[k]);
+      if (S.pool.length >= 2 && S.pool.length <= 8) {
+        var gs = subsets(S.pool);
+        for (k = 0; k < gs.length; k++) {
+          var sum = 0, g = gs[k]; for (var z = 0; z < g.length; z++) sum += g[z];
+          var cm = comboBack(S, roller, sum, g);
+          for (var y = 0; y < cm.length; y++) {
+            var key2 = roller + ':' + cm[y].i;
+            if ((S.dirs || {})[key2] === 'f' || (S.froze || {})[key2]) continue;
+            res.moves.push(cm[y]);
+          }
+        }
+      }
+      return res;
+    }
     if (S.pool.indexOf(6) >= 0) add(roller, 6);          // a laborer's 6 is their own
     if (res.moves.length) return res;
     res.mover = master;                                  // everything else is played by the master
@@ -677,11 +727,11 @@ var Ludo = (function () {
     if (S.phase !== 'move' || S.turn !== turn.t || S.mover !== turn.m || !S.pool.length) return 0;
     var ms = rawTurnMoves(S).moves, best = 0, tried = {};
     for (var q = 0; q < ms.length; q++) {
-      var m = ms[q], key = m.i + '|' + m.dest + '|' + m.d + '|' + (m.kill ? 1 : 0);
+      var m = ms[q], key = m.i + '|' + m.dest + '|' + (m.ds ? m.ds.join('+') : m.d) + '|' + (m.kill ? 1 : 0);
       if (tried[key]) continue; tried[key] = 1;
       if (budget.n-- <= 0) return S.pool.length;        // search limit: assume the rest can be counted
       var C = clone(S); applyMove(C, m, true);
-      var v = 1 + reach(C, turn, budget);
+      var v = (m.ds ? m.ds.length : 1) + reach(C, turn, budget);
       if (v > best) best = v;
       if (best >= S.pool.length) break;
     }
@@ -696,7 +746,7 @@ var Ludo = (function () {
     var budget = { n: 3000 }, vals = [], best = 0, q;
     for (q = 0; q < res.moves.length; q++) {
       var C = clone(L); applyMove(C, res.moves[q], true);
-      var v = 1 + reach(C, { t: L.turn, m: L.mover }, budget);
+      var v = (res.moves[q].ds ? res.moves[q].ds.length : 1) + reach(C, { t: L.turn, m: L.mover }, budget);
       vals.push(v); if (v > best) best = v;
     }
     // a player must be able to count every die; if no order manages that, there is no move this turn
@@ -762,8 +812,8 @@ var Ludo = (function () {
   function applyMove(S, mv, searching) {
     var seat = S.mover, from = S.m[seat][mv.i];
     S.seq++;
-    var di = S.pool.indexOf(mv.d);
-    if (di >= 0) S.pool.splice(di, 1);
+    var used = mv.ds || [mv.d];
+    for (var ui = 0; ui < used.length; ui++) { var di = S.pool.indexOf(used[ui]); if (di >= 0) S.pool.splice(di, 1); }
     var last = { type: 'move', seat: seat, i: mv.i, kind: mv.kind, path: mv.path, kill: null };
     var vfrom = mv.kill ? S.m[mv.kill.s][mv.kill.i] : null;
     S.m[seat][mv.i] = mv.dest;
