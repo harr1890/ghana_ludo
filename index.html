@@ -95,7 +95,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
       <button class="btn" id="btnSkip" hidden>Skip this turn</button>
       <button class="btn" id="btnLeave">Leave game</button>
     </div>
-    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v7</div>
+    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v8</div>
   </aside>
 </main>
 
@@ -156,12 +156,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
 <div class="sheet" id="shRules"><div class="card rules">
   <h2>Rules at this table</h2>
   <h3>Throwing the die</h3>
-  <p>On your turn the die waits over your yard. Press it, carry it, and flick to throw. It has to roll: a die you only drop does not count. If it leaves the board, that is a loss and your turn ends, whatever it shows. A table can switch losses off; the die then bounces off the rim and always counts.</p>
+  <p>On your turn the die waits over your yard. Press it, carry it, and flick to throw. It has to roll: a die you only drop does not count. If it leaves the board, that throw is a loss and your throwing ends, whatever it shows. Sixes you threw before the loss are still counted. A table can switch losses off; the die then bounces off the rim and always counts.</p>
   <h3>Moving</h3>
-  <p>A 6 earns another throw, and nothing is counted yet. You may keep throwing until something other than a 6 comes up, or stop after any 6 and count what you hold. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. A marble that has not moved this turn can. A marble that eliminates is finished for the turn, and every die has to be counted when some order allows it. So with a 6 and a 2, a marble may use the 6 to eliminate only if another marble can take the 2; otherwise it has to count both without eliminating, or you stop throwing after the 6. A 6 can bring a marble out of your yard onto your start square. Losing the die off the board loses the whole turn, held sixes included. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
+  <p>A 6 earns another throw, and nothing is counted yet. You may keep throwing until something other than a 6 comes up, or stop after any 6 and count what you hold. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. A marble that has not moved this turn can. A marble that eliminates is finished for the turn. Every die you threw has to be counted: if no order lets you count them all, you have no move that turn. So with a 6 and a 2, a marble may use the 6 to eliminate only if another marble can take the 2, and a marble five squares from the centre cannot retire on a 5 if you also hold a 6 that nothing can count. Stopping after a 6 avoids picking up a die you cannot use. A 6 can bring a marble out of your yard onto your start square. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
   <h3>Eliminating</h3>
   <p>Land exactly on a single opposing marble to send it back to its yard. Three kinds of move exist only for eliminating:</p>
-  <p><b>Backward.</b> A marble may count backward along the track if it lands exactly on an opponent.</p>
+  <p><b>Backward.</b> From anywhere on the board, home lanes included, a marble may count backward if it lands exactly on an opponent. From a lane it counts back out to the track and on.</p>
   <p><b>Parallel.</b> When the square you count onto, forward or backward, is straight across an arm from a lone opponent, with exactly the home-lane square between, you may eliminate that marble. Your marble takes its square and carries on from there, which can put it much nearer home. Coming out on a 6 counts: an opponent across the home lane from your start square can be taken. A marble inside a home lane can never be taken this way.</p>
   <p><b>Into a home.</b> A marble may turn into an opponent's home lane, or step from their start square into their yard, if the count lands exactly on a marble there. Yard dimples count 1 to 4 from the start square. A marble hit in its own yard leaves the game. The raider walks back out on later moves.</p>
   <h3>Stacks</h3>
@@ -583,7 +583,8 @@ var Ludo = (function () {
     var node = loc, path = [loc], nx, k;
     for (var step = 1; step <= n; step++) {
       if (node[0] === 'T') nx = 'T' + ((+node.slice(1) + 51) % 52);
-      else if (node[0] === 'L' && +node[1] === seat) { k = +node[2]; nx = k > 0 ? 'L' + seat + (k - 1) : 'T' + ENTR[seat]; }
+      else if (node[0] === 'L') { k = +node[2]; nx = k > 0 ? 'L' + node[1] + (k - 1) : 'T' + ENTR[+node[1]]; }
+      else if (node[0] === 'Y' && +node[1] !== seat) { k = +node[2]; nx = k > 0 ? 'Y' + node[1] + (k - 1) : 'T' + START[+node[1]]; }
       else return null;
       if (step < n && isStack(occ, nx)) return null;
       path.push(nx); node = nx;
@@ -679,7 +680,7 @@ var Ludo = (function () {
       var m = ms[q], key = m.i + '|' + m.dest + '|' + m.d + '|' + (m.kill ? 1 : 0);
       if (tried[key]) continue; tried[key] = 1;
       if (budget.n-- <= 0) return S.pool.length;        // search limit: assume the rest can be counted
-      var C = clone(S); applyMove(C, m);
+      var C = clone(S); applyMove(C, m, true);
       var v = 1 + reach(C, turn, budget);
       if (v > best) best = v;
       if (best >= S.pool.length) break;
@@ -690,14 +691,16 @@ var Ludo = (function () {
      possible. So a marble may not eliminate (and stop) if that strands a die another order could use. */
   function turnMoves(S) {
     var res = rawTurnMoves(S);
-    if (S.phase !== 'move' || S.pool.length < 2 || res.moves.length < 2) return res;
+    if (S.phase !== 'move' || S.pool.length < 2 || !res.moves.length) return res;
     var L = clone(S); L.last = null; L.log = [];
     var budget = { n: 3000 }, vals = [], best = 0, q;
     for (q = 0; q < res.moves.length; q++) {
-      var C = clone(L); applyMove(C, res.moves[q]);
+      var C = clone(L); applyMove(C, res.moves[q], true);
       var v = 1 + reach(C, { t: L.turn, m: L.mover }, budget);
       vals.push(v); if (v > best) best = v;
     }
+    // a player must be able to count every die; if no order manages that, there is no move this turn
+    if (best < S.pool.length && S.labor[S.turn] < 0) { res.moves = []; return res; }
     res.moves = res.moves.filter(function (m, k) { return vals[k] === best; });
     return res;
   }
@@ -718,7 +721,14 @@ var Ludo = (function () {
     S.last = { type: 'roll', by: roller, value: roll.value, off: !!roll.off, gone: !!roll.gone, traj: roll.traj || null };
     S.diePose = roll.gone ? null : (roll.pose || null);
     if (roll.off) {
-      log(S, { k: 'off', s: roller });
+      log(S, { k: 'off', s: roller, h: S.pool ? S.pool.length : 0 });
+      if (S.pool && S.pool.length) {              // the lost throw is void, the sixes before it still count
+        S.last.kept = S.pool.length;
+        S.phase = 'move';
+        var pk = turnMoves(S);
+        if (pk.moves.length) { S.mover = pk.mover; return S; }
+        S.last.nomove = true;
+      }
       nextTurn(S);
       return S;
     }
@@ -727,9 +737,10 @@ var Ludo = (function () {
     S.pool.push(v);
     log(S, { k: 'roll', s: roller, v: v });
     if (v === 6) { S.phase = 'roll'; S.mover = roller; return S; } // keep throwing; count afterwards
-    var p = rawTurnMoves(S);
+    S.phase = 'move';
+    var p = turnMoves(S);
     if (!p.moves.length) { S.last.nomove = true; nextTurn(S); return S; }
-    S.phase = 'move'; S.mover = p.mover;
+    S.mover = p.mover;
     return S;
   }
 
@@ -739,15 +750,16 @@ var Ludo = (function () {
     S.seq++;
     S.last = { type: 'stop', by: S.turn };
     log(S, { k: 'stop', s: S.turn });
-    var p = rawTurnMoves(S);
+    S.phase = 'move';
+    var p = turnMoves(S);
     if (!p.moves.length) { S.last.nomove = true; nextTurn(S); return S; }
-    S.phase = 'move'; S.mover = p.mover;
+    S.mover = p.mover;
     return S;
   }
 
   function sameMove(a, b) { return a.i === b.i && a.dest === b.dest; }
 
-  function applyMove(S, mv) {
+  function applyMove(S, mv, searching) {
     var seat = S.mover, from = S.m[seat][mv.i];
     S.seq++;
     var di = S.pool.indexOf(mv.d);
@@ -811,7 +823,7 @@ var Ludo = (function () {
     }
     if (S.pool.length) {
       S.phase = 'move';
-      var p = rawTurnMoves(S);
+      var p = searching ? rawTurnMoves(S) : turnMoves(S);
       if (p.moves.length) { S.phase = 'move'; S.mover = p.mover; return S; }
     }
     nextTurn(S);
@@ -1349,8 +1361,8 @@ var DiePhysics = (function () {
     setShown(a.next);
     var L = a.next.last;
     if (L && L.type === 'roll') {
-      if (L.off) banner(nameOf(L.by) + '’s die left the board. Turn lost.');
-      else if (L.nomove) banner(nameOf(L.by) + ' threw ' + L.value + '. No move to make.');
+      if (L.off) banner(nameOf(L.by) + '’s die left the board. ' + (L.kept ? (L.nomove ? 'The held 6s cannot be counted. Turn lost.' : 'That throw is lost; the 6s already thrown still count.') : 'Turn lost.'));
+      else if (L.nomove) banner(nameOf(L.by) + ' threw ' + L.value + '. Not every die can be counted, so no move.');
     }
     pump();
   }
@@ -1445,7 +1457,7 @@ var DiePhysics = (function () {
     var a = nameOf(e.s);
     switch (e.k) {
       case 'roll': return a + ' threw ' + e.v + '.';
-      case 'off': return a + '’s die left the board. Turn lost.';
+      case 'off': return a + '’s die left the board. ' + (e.h ? 'Sixes already thrown still count.' : 'Turn lost.');
       case 'kill': return a + ' eliminated one of ' + nameOf(e.v) + '’s marbles.';
       case 'dead': return a + ' raided ' + nameOf(e.v) + '’s yard. That marble is out of the game.';
       case 'labor': return a + ' is now a laborer for ' + nameOf(e.f) + '.';
