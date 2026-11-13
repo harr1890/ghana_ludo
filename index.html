@@ -95,7 +95,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
       <button class="btn" id="btnSkip" hidden>Skip this turn</button>
       <button class="btn" id="btnLeave">Leave game</button>
     </div>
-    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v9</div>
+    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v10</div>
   </aside>
 </main>
 
@@ -162,7 +162,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   <h3>Eliminating</h3>
   <p>Land exactly on a single opposing marble to send it back to its yard. Three kinds of move exist only for eliminating:</p>
   <p><b>Backward.</b> From anywhere on the board, home lanes included, a marble may count backward if it lands exactly on an opponent. From a lane it counts back out to the track and on. One marble may also add two or more dice together and count them backward as a single run, for example a 6 and a 5 as 11, as long as the run ends in an elimination: on the square reached, or by a parallel hit from it.</p>
-  <p><b>Parallel.</b> When the square you count onto, forward or backward, is straight across an arm from a lone opponent, with exactly the home-lane square between, you may eliminate that marble. Your marble takes its square and carries on from there, which can put it much nearer home. Coming out on a 6 counts: an opponent across the home lane from your start square can be taken. A marble inside a home lane can never be taken this way.</p>
+  <p><b>Parallel.</b> When the square you count onto, forward or backward, is straight across an arm from a lone opponent, with exactly one square between (the end row of an arm counts too), you may eliminate that marble. Your marble takes its square and carries on from there, which can put it much nearer home. Coming out on a 6 counts: an opponent across the home lane from your start square can be taken. A marble inside a home lane can never be taken this way.</p>
   <p><b>Into a home.</b> A marble may turn into an opponent's home lane, or step from their start square into their yard, if the count lands exactly on a marble there. Yard dimples count 1 to 4 from the start square. A marble hit in its own yard leaves the game. The raider walks back out on later moves.</p>
   <h3>Stacks</h3>
   <p>Two or more marbles of one colour on a square are a stack. A stack cannot be eliminated, and no marble of any colour can pass over it.</p>
@@ -479,11 +479,11 @@ var Ludo = (function () {
       var keys = cells.map(function (rc) { return CELL[rc[0] + ',' + rc[1]]; });
       for (var j = 0; j < 3; j++) ROWOF[keys[j]] = { row: keys, j: j };
     }
-    var i;
-    for (i = 1; i <= 5; i++) add([[6, i], [7, i], [8, i]]);
-    for (i = 9; i <= 13; i++) add([[6, i], [7, i], [8, i]]);
-    for (i = 1; i <= 5; i++) add([[i, 6], [i, 7], [i, 8]]);
-    for (i = 9; i <= 13; i++) add([[i, 6], [i, 7], [i, 8]]);
+    var i; // every row across an arm, the end row at the tip included
+    for (i = 0; i <= 5; i++) add([[6, i], [7, i], [8, i]]);
+    for (i = 9; i <= 14; i++) add([[6, i], [7, i], [8, i]]);
+    for (i = 0; i <= 5; i++) add([[i, 6], [i, 7], [i, 8]]);
+    for (i = 9; i <= 14; i++) add([[i, 6], [i, 7], [i, 8]]);
   })();
 
   /* ---------- state ---------- */
