@@ -95,7 +95,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
       <button class="btn" id="btnSkip" hidden>Skip this turn</button>
       <button class="btn" id="btnLeave">Leave game</button>
     </div>
-    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v10</div>
+    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v11</div>
   </aside>
 </main>
 
@@ -158,11 +158,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   <h3>Throwing the die</h3>
   <p>On your turn the die waits over your yard. Press it, carry it, and flick to throw. It has to roll: a die you only drop does not count. If it leaves the board, that throw is a loss and your throwing ends, whatever it shows. Sixes you threw before the loss are still counted. A table can switch losses off; the die then bounces off the rim and always counts.</p>
   <h3>Moving</h3>
-  <p>A 6 earns another throw, and nothing is counted yet. You may keep throwing until something other than a 6 comes up, or stop after any 6 and count what you hold. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. A marble that has not moved this turn can. A marble that eliminates is finished for the turn. Every die you threw has to be counted: if no order lets you count them all, you have no move that turn. So with a 6 and a 2, a marble may use the 6 to eliminate only if another marble can take the 2, and a marble five squares from the centre cannot retire on a 5 if you also hold a 6 that nothing can count. Stopping after a 6 avoids picking up a die you cannot use. A 6 can bring a marble out of your yard onto your start square. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
+  <p>A 6 earns another throw, and nothing is counted yet. You may keep throwing until something other than a 6 comes up, or stop after any 6 and count what you hold. Then count every die you threw, one at a time, in any order and on any marbles. Within one turn a marble keeps to one direction: once it has gone forward it cannot come backward to eliminate, and the other way round. Coming out of the yard does not count as going forward. A marble that has not moved this turn can. A marble that eliminates is finished for the turn. Every die you threw has to be counted: if no order lets you count them all, you have no move that turn. So with a 6 and a 2, a marble may use the 6 to eliminate only if another marble can take the 2, and a marble five squares from the centre cannot retire on a 5 if you also hold a 6 that nothing can count. Stopping after a 6 avoids picking up a die you cannot use. A 6 can bring a marble out of your yard onto your start square. Press a marble to see every square it can reach, then press the square you want; nothing moves until you choose. At the mouth of your home lane you decide whether to turn in or carry on round the track. Reach the centre by exact count. If you have a legal move you must take one.</p>
   <h3>Eliminating</h3>
   <p>Land exactly on a single opposing marble to send it back to its yard. Three kinds of move exist only for eliminating:</p>
-  <p><b>Backward.</b> From anywhere on the board, home lanes included, a marble may count backward if it lands exactly on an opponent. From a lane it counts back out to the track and on. One marble may also add two or more dice together and count them backward as a single run, for example a 6 and a 5 as 11, as long as the run ends in an elimination: on the square reached, or by a parallel hit from it.</p>
-  <p><b>Parallel.</b> When the square you count onto, forward or backward, is straight across an arm from a lone opponent, with exactly one square between (the end row of an arm counts too), you may eliminate that marble. Your marble takes its square and carries on from there, which can put it much nearer home. Coming out on a 6 counts: an opponent across the home lane from your start square can be taken. A marble inside a home lane can never be taken this way.</p>
+  <p><b>Backward.</b> From anywhere on the board, home lanes included, a marble may count backward if it lands exactly on an opponent. From a lane it counts back out to the track and on. A marble backing onto the square where an opponent's home lane or yard opens may carry on into it to reach a marble there. One marble may also add two or more dice together and count them backward as a single run, for example a 6 and a 5 as 11, as long as the run ends in an elimination: on the square reached, or by a parallel hit from it.</p>
+  <p><b>Parallel.</b> When the square you count onto, forward or backward, is straight across an arm from a lone opponent, with exactly one empty square between (the end row of an arm counts too), you may eliminate that marble. Your marble takes its square and carries on from there, which can put it much nearer home. Coming out on a 6 counts: an opponent across the home lane from your start square can be taken. A marble inside a home lane can never be taken this way. Any marble on the square between blocks the kick, and so does one of your own on the square you count onto: you cannot kick while stacking.</p>
   <p><b>Into a home.</b> A marble may turn into an opponent's home lane, or step from their start square into their yard, if the count lands exactly on a marble there. Yard dimples count 1 to 4 from the start square. A marble hit in its own yard leaves the game. The raider walks back out on later moves.</p>
   <h3>Stacks</h3>
   <p>Two or more marbles of one colour on a square are a stack. A stack cannot be eliminated, and no marble of any colour can pass over it.</p>
@@ -579,24 +579,46 @@ var Ludo = (function () {
     else { walk(loc, 'out', n, [loc], null); walk(loc, 'in', n, [loc], null); }
     return res;
   }
-  function backwardPath(S, seat, loc, n, occ) {
-    var node = loc, path = [loc], nx, k;
-    for (var step = 1; step <= n; step++) {
-      if (node[0] === 'T') nx = 'T' + ((+node.slice(1) + 51) % 52);
-      else if (node[0] === 'L') { k = +node[2]; nx = k > 0 ? 'L' + node[1] + (k - 1) : 'T' + ENTR[+node[1]]; }
-      else if (node[0] === 'Y' && +node[1] !== seat) { k = +node[2]; nx = k > 0 ? 'Y' + node[1] + (k - 1) : 'T' + START[+node[1]]; }
-      else return null;
-      if (step < n && isStack(occ, nx)) return null;
-      path.push(nx); node = nx;
+  /* Every way a marble can count n backward: back along the track (out of a lane or yard first if it is
+     in one), and, on backing onto the square an opponent's lane or yard opens from, optionally on into it. */
+  function backwardPaths(S, seat, loc, n, occ) {
+    var res = [];
+    function walk(node, mode, left, path) {
+      if (left === 0) { res.push(path); return; }
+      var opts = [], t = node[0], c, k, a;
+      if (mode === 'in') {
+        c = node[1]; k = +node[2];
+        if (t === 'L') { if (k < 4) opts.push(['L' + c + (k + 1), 'in']); }
+        else if (k < 3) opts.push(['Y' + c + (k + 1), 'in']);
+      } else if (t === 'T') {
+        a = +node.slice(1);
+        opts.push(['T' + ((a + 51) % 52), 'trk']);
+        if (path.length > 1 && path[path.length - 2][0] === 'T') {
+          for (c = 0; c < 4; c++) {
+            if (c === seat || !S.seats[c]) continue;
+            if (a === ENTR[c]) opts.push(['L' + c + '0', 'in']);
+            if (S.settings.yardRaids && a === START[c]) opts.push(['Y' + c + '0', 'in']);
+          }
+        }
+      } else if (t === 'L') {
+        k = +node[2]; opts.push(k > 0 ? ['L' + node[1] + (k - 1), 'trk'] : ['T' + ENTR[+node[1]], 'trk']);
+      } else if (t === 'Y' && +node[1] !== seat) {
+        k = +node[2]; opts.push(k > 0 ? ['Y' + node[1] + (k - 1), 'trk'] : ['T' + START[+node[1]], 'trk']);
+      }
+      for (var q = 0; q < opts.length; q++) {
+        if (left > 1 && isStack(occ, opts[q][0])) continue;
+        walk(opts[q][0], opts[q][1], left - 1, path.concat(opts[q][0]));
+      }
     }
-    return path;
+    walk(loc, 'trk', n, [loc]);
+    return res;
   }
   /* squares level with `dest` across the arm that could be hit from it */
   function parallelTargets(dest, occ) {
     var r = ROWOF[dest], res = [];
     if (!r) return res;
-    // only straight across the arm, with exactly the home-lane square between; never into the lane
-    if (r.j !== 1) res.push(r.row[2 - r.j]);
+    // only straight across the arm, with exactly one square between, and that square must be empty
+    if (r.j !== 1 && !(occ[r.row[1]] && occ[r.row[1]].length)) res.push(r.row[2 - r.j]);
     return res;
   }
   /* what happens on the landing square; null = not allowed */
@@ -623,7 +645,7 @@ var Ludo = (function () {
     // lone opponent; the marble takes that opponent's square and carries on from there
     function parallel(i, kind, path) {
       var via = path[path.length - 1], here = occ[via];
-      if (here && here.length && here[0].s !== seat) return;
+      if (here && here.length) return;          // the square counted onto must be empty: no kicking while stacking
       var pt = parallelTargets(via, occ);
       for (var q = 0; q < pt.length; q++) {
         var o = occ[pt[q]], pid = i + '>' + pt[q];
@@ -642,8 +664,8 @@ var Ludo = (function () {
       var fp = forwardPaths(S, seat, loc, n, occ), q;
       for (q = 0; q < fp.length; q++) if (!fp[q].raid) push(i, 'fwd', fp[q].path, false);
       for (q = 0; q < fp.length; q++) if (fp[q].raid) push(i, 'raid', fp[q].path, true);
-      var bp = backwardPath(S, seat, loc, n, occ);
-      if (bp) { push(i, 'back', bp, true); parallel(i, 'sideback', bp); }
+      var bps = backwardPaths(S, seat, loc, n, occ);
+      for (q = 0; q < bps.length; q++) { push(i, 'back', bps[q], true); parallel(i, 'sideback', bps[q]); }
     }
     return moves;
   }
@@ -655,17 +677,19 @@ var Ludo = (function () {
     for (var i = 0; i < 4; i++) {
       var loc = S.m[seat][i];
       if (loc === 'H' || loc === 'X' || isOwnYard(loc, seat)) continue;
-      var bp = backwardPath(S, seat, loc, n, occ);
-      if (!bp) continue;
-      var via = bp[bp.length - 1], r = landing(seat, via, true, occ);
-      if (r) { out.push({ i: i, kind: 'back', path: bp, dest: via, kill: r.kill, ds: dice.slice() }); continue; }
-      var here = occ[via];
-      if (here && here.length && here[0].s !== seat) continue;
-      var pt = parallelTargets(via, occ);
-      for (var q = 0; q < pt.length; q++) {
-        var o = occ[pt[q]];
-        if (!o || o.length !== 1 || o[0].s === seat) continue;
-        out.push({ i: i, kind: 'sideback', path: bp.concat(pt[q]), dest: pt[q], via: via, kill: { s: o[0].s, i: o[0].i }, ds: dice.slice() });
+      var bps = backwardPaths(S, seat, loc, n, occ), done = {};
+      for (var b = 0; b < bps.length; b++) {
+        var bp = bps[b], via = bp[bp.length - 1], r = landing(seat, via, true, occ);
+        if (r) { if (!done[via]) { done[via] = 1; out.push({ i: i, kind: 'back', path: bp, dest: via, kill: r.kill, ds: dice.slice() }); } continue; }
+        var here = occ[via];
+        if (here && here.length) continue;
+        var pt = parallelTargets(via, occ);
+        for (var q = 0; q < pt.length; q++) {
+          var o = occ[pt[q]];
+          if (!o || o.length !== 1 || o[0].s === seat || done[pt[q]]) continue;
+          done[pt[q]] = 1;
+          out.push({ i: i, kind: 'sideback', path: bp.concat(pt[q]), dest: pt[q], via: via, kill: { s: o[0].s, i: o[0].i }, ds: dice.slice() });
+        }
       }
     }
     return out;
@@ -818,7 +842,7 @@ var Ludo = (function () {
     var vfrom = mv.kill ? S.m[mv.kill.s][mv.kill.i] : null;
     S.m[seat][mv.i] = mv.dest;
     if (!S.dirs) S.dirs = {};
-    S.dirs[seat + ':' + mv.i] = (mv.kind === 'back' || mv.kind === 'sideback') ? 'b' : 'f';
+    if (mv.kind !== 'out') S.dirs[seat + ':' + mv.i] = (mv.kind === 'back' || mv.kind === 'sideback') ? 'b' : 'f';
     if (mv.kill) {
       if (!S.froze) S.froze = {};
       S.froze[seat + ':' + mv.i] = 1;
