@@ -21,7 +21,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
 .app{display:grid;grid-template-columns:minmax(0,1fr) 320px;height:100vh;height:100dvh}
 .stage{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden;background:var(--table)}
 .stage canvas{display:block;touch-action:none;user-select:none;-webkit-user-select:none}
-.banner{position:absolute;left:50%;top:14px;transform:translateX(-50%);max-width:88%;padding:9px 16px;border-radius:6px;background:var(--cream);color:var(--ink);font-weight:600;box-shadow:0 6px 0 rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;text-align:center}
+.banner{position:absolute;left:50%;top:10px;transform:translateX(-50%);max-width:88%;padding:6px 12px;border-radius:6px;background:var(--cream);color:var(--ink);font-weight:600;font-size:14px;line-height:1.3;box-shadow:0 3px 0 rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;text-align:center}
 .banner.on{opacity:1}
 .rail{background:var(--rail);border-left:2px solid var(--line);display:flex;flex-direction:column;min-height:0;padding:18px 18px 14px;gap:14px;overflow:auto}
 .brand{font-family:var(--display);font-size:30px;line-height:1;letter-spacing:.01em;color:var(--cream);margin:0}
@@ -32,6 +32,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
 .players li{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;border:2px solid transparent;background:var(--table-2)}
 .players li.turn{border-color:var(--cream)}
 .players li.gone{opacity:.45}
+.players li.done{opacity:.7}
+.place{font-family:var(--display);font-size:15px;color:var(--cream);min-width:2.2em;text-align:right}
+.standings{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:6px}
+.standings li{display:grid;grid-template-columns:3em 22px 1fr;gap:10px;align-items:center;padding:7px 10px;border:2px solid #d8c9a2;border-radius:6px;font-weight:600}
+.standings li .rank{font-family:var(--display);font-weight:400}
+.standings li .chip{width:22px;height:22px}
+.standings li small{display:block;font-weight:500;color:#6b563c}
 .chip{width:22px;height:22px;border-radius:50%;box-shadow:inset -3px -4px 6px rgba(0,0,0,.45), inset 3px 3px 5px rgba(255,255,255,.45)}
 .pname{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pnote{display:block;font-weight:500;font-size:12.5px;color:var(--cream-dim);white-space:normal}
@@ -74,6 +81,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   .rail{border-left:0;border-top:2px solid var(--line);overflow:visible}
   .brand{font-size:24px}
   .log{max-height:150px}
+  .banner{top:auto;bottom:3px;max-width:96%;padding:3px 10px;font-size:12px;line-height:1.35;border-radius:12px;box-shadow:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(241,228,195,.94)}
 }
 @media (prefers-reduced-motion:reduce){.banner{transition:none}}
 </style>
@@ -95,7 +103,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
       <button class="btn" id="btnSkip" hidden>Skip this turn</button>
       <button class="btn" id="btnLeave">Leave game</button>
     </div>
-    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v11</div>
+    <div class="muted" style="color:var(--cream-dim);font-size:12px">Version v12</div>
   </aside>
 </main>
 
@@ -125,6 +133,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
     <button class="btn" data-local="4">4 players</button>
   </div>
   <label class="check" style="margin-top:14px"><input type="checkbox" id="ckRaidLocal" checked><span>Allow yard raids. A marble hit in its own yard leaves the game.</span></label>
+  <label class="check"><input type="checkbox" id="ckPlayOnLocal" checked><span>Play on after a winner. With 3 or 4 players the rest keep playing for 2nd, 3rd and 4th place.</span></label>
   <label class="check"><input type="checkbox" id="ckLossLocal" checked><span>Allow losses. A die thrown off the board loses the turn. Switched off, it bounces off the rim.</span></label>
   <div class="row"><button class="btn" data-rules>Read the rules</button></div>
 </div></div>
@@ -134,6 +143,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   <p id="lbMsg" class="muted"></p>
   <ul class="seats" id="lbSeats"></ul>
   <label class="check" id="lbRaidWrap"><input type="checkbox" id="ckRaid" checked><span>Allow yard raids. A marble hit in its own yard leaves the game.</span></label>
+  <label class="check" id="lbPlayOnWrap"><input type="checkbox" id="ckPlayOn" checked><span>Play on after a winner. With 3 or 4 players the rest keep playing for 2nd, 3rd and 4th place.</span></label>
   <label class="check" id="lbLossWrap"><input type="checkbox" id="ckLoss" checked><span>Allow losses. A die thrown off the board loses the turn. Switched off, it bounces off the rim.</span></label>
   <p class="muted" id="lbInvite">To invite friends, open Share on this page and copy the link while this table is showing. The link brings them straight here. They can also enter the code on the first screen.</p>
   <div class="row" id="lbLinkRow" hidden style="margin-bottom:14px"><input type="text" id="lbLink" readonly aria-label="Invite link" style="text-transform:none;flex:1;min-width:0;width:auto"><button class="btn" id="btnCopy">Copy link</button></div>
@@ -146,6 +156,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
 
 <div class="sheet" id="shOver"><div class="card">
   <h2 id="ovTitle"></h2>
+  <ol class="standings" id="ovList"></ol>
   <p id="ovMsg"></p>
   <div class="row">
     <button class="btn main" id="btnAgain">Play again</button>
@@ -169,7 +180,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline
   <h3>Laborer</h3>
   <p>If your last marble on the board is eliminated, you become a laborer for the player who did it. You keep throwing on your turn, but every number that is not a 6 is played by them on their marbles. Throw a 6 and you bring a marble out and are free; any other dice from that turn are then yours.</p>
   <h3>Winning</h3>
-  <p>Bring every marble you still have to the centre. A player who loses all four marbles in yard raids is out.</p>
+  <p>Bring every marble you still have to the centre. The first to do it wins. With two players that ends the game; with three or four the rest play on for 2nd, 3rd and 4th place, unless the table has switched that off. A player who loses all four marbles in yard raids is out and ranks below everyone still playing.</p>
   <div class="row" style="margin-top:14px"><button class="btn main" id="btnRulesClose">Close</button></div>
 </div></div>
 
@@ -492,7 +503,8 @@ var Ludo = (function () {
       gid: gid || String(Math.random()).slice(2, 10),
       seq: 1,
       seats: active.slice(),
-      settings: { yardRaids: !settings || settings.yardRaids !== false, loss: !settings || settings.loss !== false },
+      settings: { yardRaids: !settings || settings.yardRaids !== false, loss: !settings || settings.loss !== false, playOn: !settings || settings.playOn !== false },
+      done: [false, false, false, false], places: [], outOrder: [],
       m: [], turn: -1, phase: 'roll', mover: -1, pool: [], dirs: {}, froze: {},
       labor: [-1, -1, -1, -1], out: [false, false, false, false],
       winner: -1, diePose: null, last: null, log: []
@@ -747,18 +759,21 @@ var Ludo = (function () {
   }
 
   /* How many more dice can be counted from here in this turn (searches the possible orders). */
-  function reach(S, turn, budget) {
+  function reach(S, turn, budget, memo) {
     if (S.phase !== 'move' || S.turn !== turn.t || S.mover !== turn.m || !S.pool.length) return 0;
+    var mk = JSON.stringify([S.m, S.pool.slice().sort(), S.dirs || {}, S.froze || {}, S.labor]);
+    if (Object.prototype.hasOwnProperty.call(memo, mk)) return memo[mk];
     var ms = rawTurnMoves(S).moves, best = 0, tried = {};
     for (var q = 0; q < ms.length; q++) {
       var m = ms[q], key = m.i + '|' + m.dest + '|' + (m.ds ? m.ds.join('+') : m.d) + '|' + (m.kill ? 1 : 0);
       if (tried[key]) continue; tried[key] = 1;
-      if (budget.n-- <= 0) return S.pool.length;        // search limit: assume the rest can be counted
+      if (budget.n-- <= 0) return S.pool.length;        // only for absurd pools of many dice
       var C = clone(S); applyMove(C, m, true);
-      var v = (m.ds ? m.ds.length : 1) + reach(C, turn, budget);
+      var v = (m.ds ? m.ds.length : 1) + reach(C, turn, budget, memo);
       if (v > best) best = v;
       if (best >= S.pool.length) break;
     }
+    memo[mk] = best;
     return best;
   }
   /* The moves a player may actually choose: only those that still let them count as many dice as
@@ -767,10 +782,10 @@ var Ludo = (function () {
     var res = rawTurnMoves(S);
     if (S.phase !== 'move' || S.pool.length < 2 || !res.moves.length) return res;
     var L = clone(S); L.last = null; L.log = [];
-    var budget = { n: 3000 }, vals = [], best = 0, q;
+    var budget = { n: 60000 }, memo = {}, vals = [], best = 0, q;
     for (q = 0; q < res.moves.length; q++) {
       var C = clone(L); applyMove(C, res.moves[q], true);
-      var v = (res.moves[q].ds ? res.moves[q].ds.length : 1) + reach(C, { t: L.turn, m: L.mover }, budget);
+      var v = (res.moves[q].ds ? res.moves[q].ds.length : 1) + reach(C, { t: L.turn, m: L.mover }, budget, memo);
       vals.push(v); if (v > best) best = v;
     }
     // a player must be able to count every die; if no order manages that, there is no move this turn
@@ -781,10 +796,12 @@ var Ludo = (function () {
 
   /* ---------- turn flow ---------- */
   function log(S, e) { S.log.push(e); if (S.log.length > 14) S.log.shift(); }
-  function activeLeft(S) { var a = []; for (var c = 0; c < 4; c++) if (S.seats[c] && !S.out[c]) a.push(c); return a; }
+  function isDone(S, c) { return !!(S.done && S.done[c]); }
+  function active(S, c) { return !!S.seats[c] && !S.out[c] && !isDone(S, c); }
+  function activeLeft(S) { var a = []; for (var c = 0; c < 4; c++) if (active(S, c)) a.push(c); return a; }
   function nextTurn(S) {
     var t = S.turn;
-    for (var g = 0; g < 4; g++) { t = (t + 1) % 4; if (S.seats[t] && !S.out[t]) break; }
+    for (var g = 0; g < 4; g++) { t = (t + 1) % 4; if (active(S, t)) break; }
     S.turn = t; S.mover = t; S.phase = 'roll'; S.pool = []; S.dirs = {}; S.froze = {};
   }
 
@@ -873,28 +890,38 @@ var Ludo = (function () {
 
     var c;
     for (c = 0; c < 4; c++) {
-      if (!S.seats[c] || S.out[c]) continue;
-      if (count(S, c, 'X') === 4) { S.out[c] = true; log(S, { k: 'out', s: c }); }
+      if (!active(S, c)) continue;
+      if (count(S, c, 'X') === 4) { S.out[c] = true; if (!S.outOrder) S.outOrder = []; S.outOrder.push(c); log(S, { k: 'out', s: c }); }
     }
     for (c = 0; c < 4; c++) {
       if (S.labor[c] < 0) continue;
       if (onBoardCount(S, c) > 0) { S.labor[c] = -1; log(S, { k: 'free', s: c }); }
-      else if (S.out[c] || S.out[S.labor[c]]) S.labor[c] = -1;
+      else if (!active(S, c) || !active(S, S.labor[c])) S.labor[c] = -1;   // either side has finished or is out
     }
-    // winner: every surviving marble home (mover checked first)
-    var order2 = [seat, 0, 1, 2, 3], win = -1;
-    for (var w = 0; w < order2.length && win < 0; w++) {
+    // finishing: every surviving marble home earns the next place (mover checked first)
+    if (!S.done) S.done = [false, false, false, false];
+    if (!S.places) S.places = [];
+    var order2 = [seat, 0, 1, 2, 3], finishedNow = false;
+    for (var w = 0; w < order2.length; w++) {
       c = order2[w];
-      if (!S.seats[c] || S.out[c]) continue;
+      if (!active(S, c)) continue;
       var h = count(S, c, 'H'), x = count(S, c, 'X');
-      if (h > 0 && h + x === 4) win = c;
+      if (h > 0 && h + x === 4) {
+        S.done[c] = true; S.places.push(c); finishedNow = true;
+        if (S.winner < 0) S.winner = c;
+        log(S, { k: 'finish', s: c, p: S.places.length });
+      }
     }
-    if (win < 0) { var left = activeLeft(S); if (left.length === 1) win = left[0]; }
-    if (win >= 0) {
-      S.winner = win; S.phase = 'over'; S.pool = [];
-      log(S, { k: 'win', s: win });
+    if (finishedNow) for (c = 0; c < 4; c++) if (S.labor[c] >= 0 && (!active(S, c) || !active(S, S.labor[c]))) S.labor[c] = -1;
+    var left = activeLeft(S);
+    if (left.length <= 1 || (S.settings.playOn === false && S.places.length > 0)) {
+      if (S.settings.playOn !== false && left.length === 1) { S.done[left[0]] = true; S.places.push(left[0]); }  // last one standing takes the last place
+      if (S.winner < 0) S.winner = S.places.length ? S.places[0] : (left[0] != null ? left[0] : seat);
+      S.phase = 'over'; S.pool = [];
+      log(S, { k: 'end', s: S.winner });
       return S;
     }
+    if (isDone(S, S.turn) || (finishedNow && isDone(S, seat) && seat === S.turn)) { S.pool = []; nextTurn(S); return S; }
     if (S.pool.length) {
       S.phase = 'move';
       var p = searching ? rawTurnMoves(S) : turnMoves(S);
@@ -917,7 +944,7 @@ var Ludo = (function () {
     laneCell: laneCell, nodePos: nodePos, newGame: newGame, clone: clone,
     occupancy: occupancy, legalMoves: legalMoves, turnMoves: turnMoves, stopRolling: stopRolling, applyRoll: applyRoll, applyMove: applyMove,
     skipTurn: skipTurn, onBoardCount: onBoardCount, yardCount: yardCount, count: count,
-    isOwnYard: isOwnYard, sameMove: sameMove
+    isOwnYard: isOwnYard, sameMove: sameMove, activeLeft: activeLeft, isDone: isDone, rawTurnMoves: rawTurnMoves
   };
 })();
 
@@ -1417,7 +1444,7 @@ var DiePhysics = (function () {
     if (queue.length > 3) { var end = queue[queue.length - 1]; queue = []; setShown(end); return; }
     var nx = queue.shift(), L = nx.last;
     if (!shown || nx.seq !== shown.seq + 1 || !L) { setShown(nx); pump(); return; }
-    if (L.type === 'stop' && L.nomove) banner(nameOf(L.by) + ' stopped throwing. No move to make.');
+    if (L.type === 'stop' && L.nomove) banner(nameOf(L.by) + ' stopped. No move.');
     if (L.type === 'roll' && L.traj && L.traj.length >= 14) {
       carry = null;
       anim = { type: 'roll', next: nx, traj: L.traj, t0: performance.now(), dur: (L.traj.length / 7 - 1) / 30, hold: L.gone ? 0.25 : 0.55, gone: L.gone };
@@ -1432,16 +1459,21 @@ var DiePhysics = (function () {
   }
   function finishAnim() {
     var a = anim; anim = null;
+    var before = (shown && shown.places || []).length, after = (a.next.places || []).length;
+    if (a.next.last && a.next.last.type === 'move' && after > before && a.next.phase !== 'over') {
+      var fin = a.next.places[after - 1];
+      setTimeout(function () { banner(after === 1 ? nameOf(fin) + ' wins! The rest play on.' : nameOf(fin) + ' finished ' + ordinal(after) + '.'); }, 0);
+    }
     setShown(a.next);
     var L = a.next.last;
     if (L && L.type === 'roll') {
-      if (L.off) banner(nameOf(L.by) + '’s die left the board. ' + (L.kept ? (L.nomove ? 'The held 6s cannot be counted. Turn lost.' : 'That throw is lost; the 6s already thrown still count.') : 'Turn lost.'));
-      else if (L.nomove) banner(nameOf(L.by) + ' threw ' + L.value + '. Not every die can be counted, so no move.');
+      if (L.off) banner(nameOf(L.by) + '’s die is off the board. ' + (L.kept ? (L.nomove ? 'No move.' : 'Counting the 6s.') : 'Turn lost.'));
+      else if (L.nomove) banner(nameOf(L.by) + ' threw ' + L.value + '. No move.');
     }
     pump();
   }
   var bannerT = 0;
-  function banner(text) { var b = $('banner'); b.textContent = text; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(function () { b.classList.remove('on'); }, 2600); }
+  function banner(text) { var b = $('banner'); b.textContent = text; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(function () { b.classList.remove('on'); }, window.innerWidth <= 860 ? 2000 : 2600); }
 
   function commit(S) {
     S.aid = String(Math.random()).slice(2, 10);
@@ -1518,7 +1550,7 @@ var DiePhysics = (function () {
     // throw strength follows the hand: speed in screen pixels, not board cells
     var k = (px / VIEW) * 0.0125;
     var vx = (last.p[0] - first.p[0]) / dtm * k, vy = (last.p[1] - first.p[1]) / dtm * k, sp = Math.hypot(vx, vy);
-    if (sp < 3.5) { banner('Flick it. The die has to roll to count.'); return; }
+    if (sp < 3.5) { banner('Flick it. The die has to roll.'); return; }
     if (sp > 42) { vx *= 42 / sp; vy *= 42 / sp; }
     var r = DiePhysics.simulate({ x: c.x, y: c.y, vx: vx, vy: vy, q: handQ, walls: shown.settings.loss === false });
     commit(Ludo.applyRoll(Ludo.clone(shown), { value: r.value, off: r.off, gone: r.gone, traj: r.frames, pose: r.pose }));
@@ -1539,12 +1571,25 @@ var DiePhysics = (function () {
       case 'home': return a + ' brought a marble home.';
       case 'out': return a + ' has no marbles left.';
       case 'win': return a + ' wins.';
+      case 'finish': return e.p === 1 ? a + ' wins!' : a + ' finished ' + ordinal(e.p) + '.';
+      case 'end': return 'Game over.';
       case 'skip': return a + '’s turn was skipped.';
       case 'stop': return a + ' stopped throwing.';
     }
     return '';
   }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function ordinal(n) { return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'); }
+  function placeOf(S, c) { var k = (S.places || []).indexOf(c); return k < 0 ? 0 : k + 1; }
+  function standings(S) {   // finishers in order, then anyone unplaced still in, then players knocked out (last out ranks higher)
+    var rows = [], c, k;
+    (S.places || []).forEach(function (s, i) { rows.push({ s: s, rank: ordinal(i + 1), note: i === 0 ? 'Winner' : '' }); });
+    for (c = 0; c < 4; c++) if (S.seats[c] && !S.out[c] && placeOf(S, c) === 0) rows.push({ s: c, rank: '\u2013', note: 'Did not finish' });
+    var outs = (S.outOrder || []).slice().reverse();
+    for (c = 0; c < 4; c++) if (S.seats[c] && S.out[c] && outs.indexOf(c) < 0) outs.push(c);
+    for (k = 0; k < outs.length; k++) rows.push({ s: outs[k], rank: '\u2013', note: 'Out of the game' });
+    return rows;
+  }
   function renderRail() {
     var S = shown, st = $('status'), pl = $('players'), lg = $('log');
     $('tableTag').textContent = mode === 'online' && Net.code ? 'Table ' + Net.code : mode === 'local' ? 'Playing on this device' : 'House rules, one die';
@@ -1552,7 +1597,7 @@ var DiePhysics = (function () {
     $('btnLeave').hidden = mode === 'none';
     if (!S) { st.textContent = 'Set up a game to begin.'; $('btnSkip').hidden = true; $('btnStop').hidden = true; st.style.borderLeftColor = ''; return; }
     var main = '', sub = '', who = S.phase === 'move' ? S.mover : S.turn;
-    if (S.phase === 'over') { main = label(S.winner) + ' wins the game.'; who = S.winner; }
+    if (S.phase === 'over') { main = 'Game over. ' + label(S.winner) + ' wins.'; who = S.winner; if ((S.places || []).length > 1) sub = S.places.map(function (s, i) { return ordinal(i + 1) + ' ' + nameOf(s); }).join(', ') + '.'; }
     else if (anim && anim.type === 'roll') { main = label(anim.next.last.by) + ' throws…'; who = anim.next.last.by; }
     else if (S.phase === 'roll') {
       main = canAct(S.turn) && mode === 'online' ? 'Your throw.' : label(S.turn) + ' to throw.';
@@ -1569,16 +1614,19 @@ var DiePhysics = (function () {
     st.style.borderLeftColor = COL[who].paint;
     for (var c = 0; c < 4; c++) {
       if (!S.seats[c]) continue;
-      var li = el('li', (S.phase !== 'over' && who === c ? 'turn' : '') + (S.out[c] ? ' gone' : ''));
+      var pc = placeOf(S, c);
+      var li = el('li', (S.phase !== 'over' && who === c ? 'turn' : '') + (S.out[c] ? ' gone' : '') + (pc && S.phase !== 'over' ? ' done' : ''));
       var chip = el('span', 'chip'); chip.style.background = COL[c].base; li.appendChild(chip);
       var nm = el('span', 'pname', label(c));
-      var note = S.out[c] ? 'Out of the game' : S.labor[c] >= 0 ? 'Laborer for ' + nameOf(S.labor[c]) : '';
+      var note = S.out[c] ? 'Out of the game' : pc ? (pc === 1 ? 'Winner' : 'Finished ' + ordinal(pc)) : S.labor[c] >= 0 ? 'Laborer for ' + nameOf(S.labor[c]) : '';
       if (note) nm.appendChild(el('span', 'pnote', note));
       li.appendChild(nm);
       var tl = el('span', 'tally'), h = 0;
       tl.setAttribute('aria-label', Ludo.count(S, c, 'H') + ' home, ' + Ludo.onBoardCount(S, c) + ' on the board, ' + Ludo.yardCount(S, c) + ' in the yard, ' + Ludo.count(S, c, 'X') + ' lost');
       for (var i = 0; i < 4; i++) { var l = S.m[c][i]; tl.appendChild(el('i', l === 'H' ? 'h' : l === 'X' ? 'x' : Ludo.isOwnYard(l, c) ? '' : 'b')); }
-      li.appendChild(tl); pl.appendChild(li);
+      if (pc) { var badge = el('span', 'place', ordinal(pc)); badge.setAttribute('aria-label', ordinal(pc) + ' place'); li.appendChild(badge); }
+      else li.appendChild(tl);
+      pl.appendChild(li);
     }
     for (var q = S.log.length - 1; q >= 0; q--) lg.appendChild(el('li', '', logText(S.log[q])));
     var host = mode === 'online' && Net.meta && Net.meta.host === Net.uid;
@@ -1588,6 +1636,14 @@ var DiePhysics = (function () {
   }
   function showOver() {
     $('ovTitle').textContent = label(shown.winner) + ' wins';
+    var ol = $('ovList'); ol.textContent = '';
+    standings(shown).forEach(function (r) {
+      var li = el('li'), chip = el('span', 'chip'), nm = el('span', '', label(r.s));
+      chip.style.background = COL[r.s].base;
+      if (r.note && r.note !== 'Winner') nm.appendChild(el('small', '', r.note));
+      li.appendChild(el('span', 'rank', r.rank)); li.appendChild(chip); li.appendChild(nm); ol.appendChild(li);
+    });
+    ol.hidden = standings(shown).length < 2;
     var host = mode !== 'online' || (Net.meta && Net.meta.host === Net.uid);
     $('ovMsg').textContent = host ? 'Set the marbles up again when everyone is ready.' : 'The host can set up the next game.';
     $('btnAgain').hidden = !host;
@@ -1602,7 +1658,7 @@ var DiePhysics = (function () {
     mode = 'local';
     var seats = n === 2 ? [true, false, true, false] : n === 3 ? [true, true, true, false] : [true, true, true, true];
     hide('shHome'); hide('shOver');
-    hardSet(Ludo.newGame(seats, { yardRaids: $('ckRaidLocal').checked, loss: $('ckLossLocal').checked }));
+    hardSet(Ludo.newGame(seats, { yardRaids: $('ckRaidLocal').checked, loss: $('ckLossLocal').checked, playOn: $('ckPlayOnLocal').checked }));
     startLocal.n = n;
   }
 
@@ -1649,7 +1705,7 @@ var DiePhysics = (function () {
     $('btnCreate').disabled = true;
     try {
       if (P2P) { $('onlineNote').textContent = 'Setting up the table\u2026'; code = (await window.__p2p.pick()) + code; }
-      await Net.db.doc('games/' + code).set({ v: 1, host: Net.uid, status: 'lobby', seats: seats, settings: { yardRaids: true, loss: true }, names: namePatch(), seq: 0, s: '', created: Date.now() });
+      await Net.db.doc('games/' + code).set({ v: 1, host: Net.uid, status: 'lobby', seats: seats, settings: { yardRaids: true, loss: true, playOn: true }, names: namePatch(), seq: 0, s: '', created: Date.now() });
       joinTable(code);
     } catch (e) {
       if (P2P) $('onlineNote').textContent = 'Could not start a table. Check your internet connection and try again.'; else { Net.canWrite = false; refreshHome(); $('onlineNote').textContent = 'Could not start a table: you have view-only access to this page. Ask the owner for edit access.'; }
@@ -1672,7 +1728,7 @@ var DiePhysics = (function () {
     setHash(code);
     hide('shHome'); hide('shOver'); show('shLobby');
     $('lbCode').textContent = code; $('lbSeats').textContent = ''; $('lbMsg').textContent = 'Finding the table…';
-    $('btnStart').hidden = true; $('lbRaidWrap').hidden = true; $('lbLossWrap').hidden = true;
+    $('btnStart').hidden = true; $('lbRaidWrap').hidden = true; $('lbLossWrap').hidden = true; $('lbPlayOnWrap').hidden = true;
     renderRail();
     Net.timer = setTimeout(function () { if (!Net.meta) $('lbMsg').textContent = 'The table can’t be reached yet. Still trying.'; }, 10000);
     Net.unsub = Net.doc.onSnapshot(onSnap, function () {
@@ -1739,6 +1795,7 @@ var DiePhysics = (function () {
     }
     $('lbRaidWrap').hidden = false; $('ckRaid').checked = M.settings.yardRaids !== false; $('ckRaid').disabled = !host;
     $('lbLossWrap').hidden = false; $('ckLoss').checked = M.settings.loss !== false; $('ckLoss').disabled = !host;
+    $('lbPlayOnWrap').hidden = false; $('ckPlayOn').checked = M.settings.playOn !== false; $('ckPlayOn').disabled = !host;
   }
   var wq = Promise.resolve();
   function chain(fn) { wq = wq.then(fn).catch(writeFail); return wq; }
@@ -1748,7 +1805,7 @@ var DiePhysics = (function () {
     catch (e) { if (e && e.code === 'unavailable') { await sleep(400 + Math.random() * 500); await Net.doc.update(body); } else throw e; }
   }
   async function writeFail(e) {
-    if (P2P) { banner('That did not reach the other players. Check your connection.'); }
+    if (P2P) { banner('Move not sent. Check your connection.'); }
     else if (e && e.code === 'invalid_argument') { Net.canWrite = false; banner('You have view-only access to this page, so you can watch but not play.'); if (Net.meta && Net.meta.status === 'lobby') renderLobby(); }
     else banner('That did not save. Reloading the table…');
     try {
@@ -1797,6 +1854,7 @@ var DiePhysics = (function () {
   };
   try { $('inName').value = localStorage.getItem('ludo-name') || ''; } catch (e) { }
   window.__netStatus = function (text) { if (text) banner(text); };
+  $('ckPlayOn').onchange = function () { var v = $('ckPlayOn').checked; chain(function () { return upd({ settings: { playOn: v } }); }); };
   $('ckLoss').onchange = function () { var v = $('ckLoss').checked; chain(function () { return upd({ settings: { loss: v } }); }); };
   $('ckRaid').onchange = function () { var v = $('ckRaid').checked; chain(function () { return upd({ settings: { yardRaids: v } }); }); };
   $('btnLobbyLeave').onclick = function () {
